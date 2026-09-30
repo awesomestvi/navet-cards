@@ -1,0 +1,44 @@
+name: Build prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vVERSION-beta.N tag whose package version matches
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate prerelease tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node --input-type=module - <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const tag = process.env.RELEASE_TAG;
+          const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+          if (!/^v\d+\.\d+\.\d+-beta\.\d+$/.test(tag) || tag !== `v${version}`) {
+            throw new Error('Use an existing beta tag matching package.json.');
+          }
+          NODE
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - name: Publish immutable prerelease asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release create "$RELEASE_TAG" dist/navet-cards.js --verify-tag --prerelease --generate-notes

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Navet Cards · Preview</title>
+  <style>
+    :root { color-scheme:dark; --primary-text-color:#eef0f4; --secondary-text-color:#a4abb8; --card-background-color:#20242d; --ha-card-background:#20242d; --divider-color:#424753; --primary-color:#ea8c55; }
+    body { margin:0; background:#16191f; color:var(--primary-text-color); font:14px Inter,system-ui,sans-serif; }
+    main { max-width:1000px; margin:0 auto; padding:32px 24px 60px; } header { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:28px; }
+    h1 { margin:0 0 7px; font-size:24px; font-weight:600; letter-spacing:-.035em; } h2 { font-size:14px; font-weight:550; margin:0 0 14px; color:var(--secondary-text-color); }
+    p { color:var(--secondary-text-color); margin:0; line-height:1.5; } .toolbar { display:flex; gap:8px; flex-wrap:wrap; } button,select { background:var(--card-background-color); color:inherit; border:1px solid var(--divider-color); padding:9px 13px; border-radius:100px; font:inherit; cursor:pointer; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:stretch; margin-bottom:30px; }
+    .section { display:contents; } .built-in { border:1px solid var(--divider-color); border-radius:12px; padding:18px; background:var(--card-background-color); min-height:130px; display:flex; flex-direction:column; gap:8px; }
+    #events { min-height:25px; font-size:12px; margin-top:20px; } #editor-panel { max-width:520px; margin-top:24px; padding:24px; background:var(--card-background-color); border-radius:24px; }
+    .light { color-scheme:light; --primary-text-color:#20242d; --secondary-text-color:#657080; --card-background-color:#fff; --ha-card-background:#fff; --divider-color:#d7dce3; background:#f2f4f6; }
+    @media(max-width:700px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } header { align-items:flex-start; flex-direction:column; } }
+    @media(max-width:380px) { main { padding:24px 12px; } .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body><main>
+  <header><div><h1>Navet Cards</h1><p>Independent cards for your Home Assistant dashboard.</p></div><div class="toolbar"><button id="theme">Light theme</button><button id="unavailable">Unavailable state</button><button id="fail">Fail next action</button></div></header>
+  <h2>Kitchen</h2><div class="grid" id="cards"></div>
+  <p>This preview uses simulated Home Assistant state. It does not control your home.</p>
+  <p id="events" role="status">Try a control, then open the room.</p>
+  <details id="editor-panel"><summary>Edit the kitchen light</summary><navet-card-editor id="editor"></navet-card-editor></details>
+</main>
+<script type="module">
+  import '../dist/navet-cards.js';
+  class DemoIcon extends HTMLElement {
+    set icon(value) { this.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="'+({ 'mdi:power-plug-outline':'M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-5 6v4h-2v-4a6 6 0 0 1-5-6z', 'mdi:gauge':'M4 18a9 9 0 1 1 16 0M12 13l4-5M5 18h14', 'mdi:sofa-outline':'M5 12V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4M3 11v7h18v-7M5 18v3m14-3v3M6 14h12', 'mdi:speaker':'M6 3h12v18H6zM12 7h.01M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6', 'mdi:thermostat':'M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0M12 8v10', 'mdi:blinds-horizontal':'M3 4h18M4 4v15h16V4M4 9h16M4 14h16M12 19v3' }[value]??'M9 18h6m-5 3h4M8 14c-5-5-1-11 4-11s9 6 4 11l-1 2H9z')+'"/></svg>'; }
+  }
+  if(!customElements.get('ha-icon')) customElements.define('ha-icon',DemoIcon);
+  const state=(id,value,attributes)=>({ entity_id:id,state:value,attributes });
+  const states={
+    'light.kitchen':state('light.kitchen','on',{ friendly_name:'Kitchen lights',brightness:166,supported_color_modes:['brightness'] }),
+    'switch.coffee':state('switch.coffee','off',{ friendly_name:'Coffee machine' }),
+    'sensor.temperature':state('sensor.temperature','21.4',{ friendly_name:'Kitchen temperature',unit_of_measurement:'°C' }),
+    'media_player.kitchen':state('media_player.kitchen','playing',{ friendly_name:'Kitchen speaker',media_title:'Morning radio',supported_features:16389,volume_level:.35 }),
+    'climate.kitchen':state('climate.kitchen','heat',{ friendly_name:'Kitchen heating',supported_features:1,temperature:22,current_temperature:21.4,min_temp:7,max_temp:30,target_temp_step:.5 }),
+    'cover.kitchen':state('cover.kitchen','open',{ friendly_name:'Kitchen blinds',supported_features:15,current_position:75 }),
+    'sensor.missing':undefined,
+  };
+  let fail=false;
+  window.calls=[];
+  const report=message=>document.querySelector('#events').textContent=message;
+  window.demoHass={ states,language:'en',themes:{darkMode:true},config:{unit_system:{temperature:'°C'}},areas:{kitchen:{name:'Kitchen'}},entities:Object.fromEntries(Object.keys(states).filter(id=>states[id]).map(id=>[id,{area_id:'kitchen'}])),devices:{},
+    async callService(domain,service,data,target) {
+      if(fail) { fail=false; throw new Error('The device did not respond. Try again.'); }
+      window.calls.push({domain,service,data,target});
+      const id=target?.entity_id??data?.entity_id;
+      if(!window.demoHass.states[id]) return;
+      const old=window.demoHass.states[id];
+      let value=old.state; const attributes={...old.attributes};
+      if(service==='turn_on') value='on'; if(service==='turn_off') value='off';
+      if(data.brightness_pct!==undefined) attributes.brightness=Math.round(data.brightness_pct*255/100);
+      if(service==='media_pause') value='paused'; if(service==='media_play') value='playing';
+      if(data.volume_level!==undefined) attributes.volume_level=data.volume_level;
+      if(data.temperature!==undefined) attributes.temperature=data.temperature;
+      if(service==='open_cover') {value='open';attributes.current_position=100;} if(service==='close_cover') {value='closed';attributes.current_position=0;}
+      if(data.position!==undefined) {attributes.current_position=data.position;value=data.position===0?'closed':'open';}
+      window.demoHass={...window.demoHass,states:{...window.demoHass.states,[id]:{...old,state:value,attributes}}}; window.syncCards();
+      report(`${service.replaceAll('_',' ')} · ${old.attributes.friendly_name}`);
+    }
+  };
+  window.configs=[
+    {type:'custom:navet-light-card',entity:'light.kitchen',tap_action:{action:'toggle'},hold_action:{action:'more-info'}},
+    {type:'custom:navet-switch-card',entity:'switch.coffee'},
+    {type:'custom:navet-sensor-card',entity:'sensor.temperature'},
+    {type:'custom:navet-room-card',area:'kitchen'},
+    {type:'custom:navet-media-card',entity:'media_player.kitchen'},
+    {type:'custom:navet-climate-card',entity:'climate.kitchen'},
+    {type:'custom:navet-cover-card',entity:'cover.kitchen'},
+  ];
+  window.cards=window.configs.map(config=>{const card=document.createElement(config.type.replace('custom:',''));card.setConfig(config);document.querySelector('#cards').append(card);return card;});
+  window.syncCards=()=>{window.cards.forEach(card=>card.hass=window.demoHass);document.querySelector('#editor').hass=window.demoHass;}; window.syncCards();
+  const editor=document.querySelector('#editor');editor.setConfig(window.configs[0]);
+  editor.addEventListener('config-changed',e=>{window.cards[0].setConfig(e.detail.config);window.configs[0]=e.detail.config;});
+  document.addEventListener('hass-more-info',e=>report(`More info · ${e.detail.entityId}`));
+  document.querySelector('#theme').onclick=()=>{const light=document.body.classList.toggle('light');window.demoHass={...window.demoHass,themes:{darkMode:!light}};window.syncCards();document.querySelector('#theme').textContent=light?'Dark theme':'Light theme';};
+  document.querySelector('#unavailable').onclick=()=>{const entity=window.demoHass.states['light.kitchen'];window.demoHass={...window.demoHass,states:{...window.demoHass.states,'light.kitchen':{...entity,state:entity.state==='unavailable'?'on':'unavailable'}}};window.syncCards();};
+  document.querySelector('#fail').onclick=()=>{fail=true;report('Next action will fail.');};
+</script></body></html>
