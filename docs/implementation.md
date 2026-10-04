@@ -12,7 +12,7 @@ Provider-neutral card models and an injected HA adapter live locally. Light comm
 - HA more-info and navigation actions, tap/hold/double-tap handling, optional confirmation, and recoverable command errors.
 - Compact/comfortable composition, dark/light/black/glass appearances, CSS variables, keyboard controls, reduced motion, English and Swedish card strings.
 - Room area/device resolution, explicit membership, and a native dialog linking to HA entity details.
-- One-file resource, dependency lockfile, build budget, CI, private repository, HACS metadata, release workflow, and manual installation documentation.
+- One-file resource, dependency lockfile, build budget, CI, public repository, HACS metadata, release workflow, and manual installation documentation.
 
 The editor's advanced action labels currently use English. English is the fallback for unsupported languages. Media controls currently cover playback and volume; climate covers a single target temperature; covers expose movement and position. Their native HA details provide the richer device interface.
 

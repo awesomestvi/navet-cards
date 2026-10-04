@@ -46,4 +46,4 @@ Use `2024.6.4 18125` to check the compatibility target separately. Stop containe
 
 ## Acceptance
 
-Accept the private beta after household device and companion-app checks pass. Public HACS installation requires a publicly accessible repository, a release resource, and a separate clean-install/upgrade check. Keep distribution private until the maintainer approves publication.
+Accept the beta after household device and companion-app checks pass. HACS distribution requires a published release resource and a separate clean-install/upgrade check. The maintainer approves prerelease publication after reviewing this evidence.

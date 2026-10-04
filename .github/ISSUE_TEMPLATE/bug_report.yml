@@ -1,0 +1,34 @@
+name: Bug or device compatibility
+description: Report a reproducible card problem or unsupported device behavior.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, private URLs, and household details from logs and screenshots. Report security vulnerabilities privately using the Security policy.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Navet Cards, Home Assistant, and browser or companion app.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected behavior, and actual behavior
+      description: Include the card type and device model when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Minimal card YAML
+      description: Use example entity names and remove sensitive values.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, errors, and entity capabilities
+      description: Include relevant supported_features or supported_color_modes for device control problems.
