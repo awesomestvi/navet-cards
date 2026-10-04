@@ -21,7 +21,7 @@ Open [the local preview](http://127.0.0.1:4178/demo/). The preview uses simulate
 1. Build the resource with `npm ci` and `npm run build`.
 2. Copy `dist/navet-cards.js` into your Home Assistant `/config/www/` directory. If you create the `www` directory for the first time, restart Home Assistant.
 3. Open your dashboard, choose **Edit dashboard**, open its menu, and select **Manage resources**. Enable Advanced mode in your Home Assistant profile if the resource menu is hidden.
-4. Add `/local/navet-cards.js?v=0.1.0-beta.1` as a **JavaScript Module** resource. Update an existing Navet resource rather than registering a second copy.
+4. Add `/local/navet-cards.js?v=0.1.0-beta.2` as a **JavaScript Module** resource. Update an existing Navet resource rather than registering a second copy.
 5. Refresh the dashboard. Choose **Add card** and search for **Navet**.
 6. Select a supported entity and configure the card in the visual editor or YAML.
 
@@ -29,7 +29,7 @@ For a YAML-managed resource list:
 
 ```yaml
 resources:
-  - url: /local/navet-cards.js?v=0.1.0-beta.1
+  - url: /local/navet-cards.js?v=0.1.0-beta.2
     type: module
 ```
 
@@ -43,12 +43,12 @@ The repository is private, so use the manual build installation above. The HACS 
 
 | Card type | Supported selection | Controls |
 | --- | --- | --- |
-| `custom:navet-light-card` | `light.*` | On/off, brightness when supported |
+| `custom:navet-light-card` | `light.*` | On/off, brightness slider and 50%/100% presets when supported |
 | `custom:navet-switch-card` | `switch.*`, `input_boolean.*` | On/off |
 | `custom:navet-sensor-card` | `sensor.*`, `binary_sensor.*` | Value, unit, optional attribute |
 | `custom:navet-room-card` | HA area ID or explicit entities | Room status and a dialog linking to entity details |
-| `custom:navet-media-card` | `media_player.*` | Play/pause and volume when supported |
-| `custom:navet-climate-card` | `climate.*` | Target temperature when supported |
+| `custom:navet-media-card` | `media_player.*` | Play/pause and a volume popover when supported |
+| `custom:navet-climate-card` | `climate.*` | Current temperature, target dial and step controls when supported |
 | `custom:navet-cover-card` | `cover.*` | Open/stop/close and position when supported |
 
 ```yaml
@@ -67,7 +67,7 @@ hold_action:
   action: more-info
 grid_options:
   columns: 6
-  rows: 4
+  rows: 3
 ```
 
 Common fields:
@@ -80,12 +80,12 @@ Common fields:
 | `layout` | `compact` or `comfortable` | `compact` |
 | `show_state` | Show state or sensor value | `true` |
 | `show_brightness` | Show supported brightness control | `true` on light cards |
-| `appearance.accent` | Six-digit hex color | Theme variable or Navet orange |
+| `appearance.accent` | Six-digit hex color | Theme variable, Navet orange, or the card family accent |
 | `appearance.radius` | Corner radius, 0–48 pixels | 24 pixels |
 | `appearance.theme` | `auto`, `light`, `dark`, `black`, or `glass` | `auto` follows HA theme |
 | `grid_options` | Home Assistant Sections placement | Card-specific sizing |
 
-`layout` changes the card's internal composition. Home Assistant owns placement through `grid_options` on versions with Sections sizing controls. Use enough rows for the controls and wrapped titles; `rows: auto` lets Home Assistant use the card's content height. On Home Assistant 2024.6.4, Sections uses full-width custom cards. Cards also provide Masonry sizing.
+`layout` selects compact or comfortable density. Light cards use brightness presets, sensor cards emphasize the reading, climate cards show a temperature dial, media cards show available artwork with a disc fallback, and cover cards use a vertical position handle over the blind fill. Position and temperature sliders support keyboard input. The volume icon opens an in-card slider; activate the icon again to close it. Media progress is a read-only indication when duration is supplied. Home Assistant owns placement through `grid_options` on versions with Sections sizing controls. Use enough rows for the controls and wrapped titles; `rows: auto` lets Home Assistant use the card's content height. On Home Assistant 2024.6.4, Sections uses full-width custom cards. Cards also provide Masonry sizing.
 
 ### Sensors
 
@@ -122,7 +122,7 @@ An explicit entity list takes precedence over area membership and works when reg
 
 ### Actions
 
-Entity card titles open **more-info** by default. Room titles open the room dialog. Buttons and sliders perform their labeled controls. Optional `tap_action`, `hold_action`, and `double_tap_action` apply to the card title/icon area. Keyboard activation performs the tap action.
+Light and switch titles toggle the entity by default. Other entity titles open **more-info**. The circular settings control opens Home Assistant details. Room titles open the room dialog. Buttons and sliders perform their labeled controls. Optional `tap_action`, `hold_action`, and `double_tap_action` apply to the card title. Keyboard activation performs the tap action.
 
 Home Assistant enforces account permissions. A denied control or configured action displays a permission explanation, and **Close** dismisses it. Entity details remain available to accounts that can read the entity.
 

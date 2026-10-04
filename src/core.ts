@@ -31,6 +31,12 @@ export interface CardEntity {
   stepTemperature?: number;
   position?: number;
   subtitle?: string;
+  currentTemperature?: number;
+  climateAction?: string;
+  artist?: string;
+  artwork?: string;
+  duration?: number;
+  elapsed?: number;
 }
 export type CardCommand =
   | { type: 'toggle' | 'play_pause' | 'open' | 'close' | 'stop' }

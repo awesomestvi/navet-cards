@@ -13,17 +13,35 @@ import { PermissionDeniedError } from '../src/core';
 const switchConfig = { type: 'custom:navet-switch-card', entity: 'switch.coffee' };
 const hass = (states: Hass['states'] = {}): Hass => ({ states, async callService() {} });
 test('host service permission failures normalize for controls and configured actions', async () => {
-  const host: Hass = { states: {}, async callService() { throw { code: 'unauthorized', message: 'Unauthorized' }; } };
+  const host: Hass = {
+    states: {},
+    async callService() {
+      throw { code: 'unauthorized', message: 'Unauthorized' };
+    },
+  };
   await assert.rejects(callHostService(host, 'scene', 'turn_on', {}, {}), PermissionDeniedError);
-  const model = mapEntity({ entity_id: 'switch.test', state: 'off', attributes: {} }, 'switch', 'switch.test');
+  const model = mapEntity(
+    { entity_id: 'switch.test', state: 'off', attributes: {} },
+    'switch',
+    'switch.test',
+  );
   await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
-  host.callService = async () => { throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' }; };
+  host.callService = async () => {
+    throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' };
+  };
   await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
-  host.callService = async () => { throw { code: 'home_assistant_error', message: 'Unauthorized' }; };
+  host.callService = async () => {
+    throw { code: 'home_assistant_error', message: 'Unauthorized' };
+  };
   await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
   const networkError = new Error('Connection lost');
-  host.callService = async () => { throw networkError; };
-  await assert.rejects(callHostService(host, 'switch', 'turn_on', {}, {}), (error) => error === networkError);
+  host.callService = async () => {
+    throw networkError;
+  };
+  await assert.rejects(
+    callHostService(host, 'switch', 'turn_on', {}, {}),
+    (error) => error === networkError,
+  );
 });
 test('configuration is isolated and advanced fields survive round-tripping', () => {
   const input = {
@@ -195,4 +213,52 @@ test('cover and climate commands retain native units and supported ranges', asyn
     ['cover', 'set_cover_position', { position: 20 }, { entity_id: 'cover.a' }],
     ['climate', 'set_temperature', { temperature: 22.5 }, { entity_id: 'climate.a' }],
   ]);
+});
+
+test('presentation models normalize media metadata and reject executable artwork URLs', () => {
+  const entity = {
+    entity_id: 'media_player.test',
+    state: 'playing',
+    attributes: {
+      media_artist: 'Navet Studio',
+      media_title: 'Aerial',
+      entity_picture: '/api/media_player_proxy/test?token=test',
+      media_duration: 243,
+      media_position: 86,
+    },
+  };
+  const model = mapEntity(entity, 'media', entity.entity_id);
+  assert.equal(model.artist, 'Navet Studio');
+  assert.equal(model.duration, 243);
+  assert.equal(model.elapsed, 86);
+  assert.equal(model.artwork, entity.attributes.entity_picture);
+  for (const url of ['https://example.test/cover.jpg', 'http://example.test/cover.jpg'])
+    assert.equal(
+      mapEntity(
+        { ...entity, attributes: { ...entity.attributes, entity_picture: url } },
+        'media',
+        entity.entity_id,
+      ).artwork,
+      url,
+    );
+  for (const url of ['javascript:alert(1)', 'data:text/html,test', '//external.test/image'])
+    assert.equal(
+      mapEntity(
+        { ...entity, attributes: { ...entity.attributes, entity_picture: url } },
+        'media',
+        entity.entity_id,
+      ).artwork,
+      undefined,
+    );
+  const climate = mapEntity(
+    {
+      entity_id: 'climate.test',
+      state: 'cool',
+      attributes: { current_temperature: 21, hvac_action: 'cooling' },
+    },
+    'climate',
+    'climate.test',
+  );
+  assert.equal(climate.currentTemperature, 21);
+  assert.equal(climate.climateAction, 'cooling');
 });
