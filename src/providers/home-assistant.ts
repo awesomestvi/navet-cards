@@ -174,7 +174,8 @@ export async function callHostService(
     return await hass.callService(domain, service, data, target);
   } catch (error) {
     const details = error && typeof error === 'object' && 'error' in error ? error.error : error;
-    if (details && typeof details === 'object' && 'code' in details && details.code === 'unauthorized')
+    if (details && typeof details === 'object' && 'code' in details &&
+      (details.code === 'unauthorized' || (details.code === 'home_assistant_error' && 'message' in details && details.message === 'Unauthorized')))
       throw new PermissionDeniedError('You do not have permission to run this action.');
     throw error;
   }

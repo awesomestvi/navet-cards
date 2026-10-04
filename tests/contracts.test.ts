@@ -19,6 +19,8 @@ test('host service permission failures normalize for controls and configured act
   await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
   host.callService = async () => { throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' }; };
   await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
+  host.callService = async () => { throw { code: 'home_assistant_error', message: 'Unauthorized' }; };
+  await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
   const networkError = new Error('Connection lost');
   host.callService = async () => { throw networkError; };
   await assert.rejects(callHostService(host, 'switch', 'turn_on', {}, {}), (error) => error === networkError);

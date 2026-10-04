@@ -51,7 +51,7 @@ test('failed commands expose a recoverable error', async ({ page }) => {
 
 test('permission denial explains access limits for controls and configured actions', async ({ page }) => {
   await page.evaluate(() => {
-    (window as any).demoHass = { ...(window as any).demoHass, async callService() { throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' }; } };
+    (window as any).demoHass = { ...(window as any).demoHass, async callService() { throw { code: 'home_assistant_error', message: 'Unauthorized' }; } };
     (window as any).syncCards();
   });
   const light = page.locator('navet-light-card');

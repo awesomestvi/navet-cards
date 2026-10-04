@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { mapEntity, roomEntityIds, executeCommand, type Hass } from '../../src/providers/home-assistant';
 import type { CardKind } from '../../src/core';
+import { PermissionDeniedError } from '../../src/core';
 
 // Opt-in only: sessions are created by scripts/ha-validation.mjs for disposable demo hosts.
 const sessionPath = resolve(process.env.NAVET_HA_SESSION ?? 'missing-session');
@@ -67,6 +68,25 @@ async function eventually(check: () => Promise<boolean>) {
   }
   assert.fail('HA backend state did not converge');
 }
+async function serviceAs(token: string, domain: string, service: string, data?: Record<string, unknown>, target?: Record<string, unknown>) {
+  const connection = new WebSocket(`${session.base.replace('http:', 'ws:')}/api/websocket`);
+  try {
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Restricted service timed out')), 30000);
+      connection.addEventListener('error', () => { clearTimeout(timer); reject(new Error('Restricted connection failed')); });
+      connection.addEventListener('message', ({ data: raw }) => {
+        const message = JSON.parse(String(raw));
+        if (message.type === 'auth_required') connection.send(JSON.stringify({ type: 'auth', access_token: token }));
+        if (message.type === 'auth_invalid') { clearTimeout(timer); reject(new Error('Restricted auth failed')); }
+        if (message.type === 'auth_ok') connection.send(JSON.stringify({ id: 1, type: 'call_service', domain, service, service_data: data, target }));
+        if (message.type === 'result') {
+          clearTimeout(timer);
+          message.success ? resolve(message.result) : reject(message.error);
+        }
+      });
+    });
+  } finally { connection.close(); }
+}
 
 test(`live Home Assistant ${session.version}: real capability and service round trips`, async () => {
   try {
@@ -122,6 +142,10 @@ test(`live Home Assistant ${session.version}: real capability and service round 
         });
         if (role === 'readonly') assert.ok([401, 403].includes(service.status), 'Read-only service is denied by HA');
         else assert.equal(service.status, 200, 'Household member can control entities');
+        const restrictedHost: Hass = { states: hass.states, callService: (domain, service, data, target) => serviceAs(tokens.access_token, domain, service, data, target) };
+        const model = mapEntity(hass.states['input_boolean.navet_test'], 'switch', 'input_boolean.navet_test');
+        if (role === 'readonly') await assert.rejects(executeCommand(restrictedHost, model, { type: 'toggle' }), PermissionDeniedError);
+        else await executeCommand(restrictedHost, model, { type: 'toggle' });
       } finally {
         await fetch(session.base + '/auth/token', { method: 'POST', body: new URLSearchParams({ action: 'revoke', token: tokens.refresh_token }) });
       }
