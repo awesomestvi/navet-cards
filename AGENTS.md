@@ -10,4 +10,4 @@ This is an independent Home Assistant custom-card repository. Source must build 
 
 Keep raw HA payloads and service translation in the provider/host boundary. Keep appearance and transient state per card. Never mutate user configuration, global theme styles, or app settings. Dispose listeners/subscriptions on disconnect. Preserve advanced YAML fields in visual editing. Use capability checks before showing controls or sending commands.
 
-Use Conventional Commits. Run `npm run check` for behavior changes. Inspect relevant screenshots for UI work. Browser simulation does not replace the live release checklist. Update README for lasting user-visible configuration or behavior changes. Keep public distribution private until the maintainer authorizes publication. Never bypass commit/push hooks.
+Use Conventional Commits. Run `npm run check` for behavior changes. Inspect relevant screenshots for UI work. Browser simulation does not replace the live release checklist. Update README for lasting user-visible configuration or behavior changes. Release publication requires explicit maintainer authorization and the live release checklist. Never bypass commit/push hooks.

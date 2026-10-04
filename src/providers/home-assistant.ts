@@ -1,4 +1,5 @@
 import type { CardEntity, CardKind, CardCommand, Capability } from '../core';
+import { PermissionDeniedError } from '../core';
 
 export interface HassEntity {
   entity_id: string;
@@ -112,6 +113,15 @@ export function mapEntity(
     stepTemperature:
       finite(a.target_temp_step) && a.target_temp_step > 0 ? a.target_temp_step : 0.5,
     position: finite(a.current_position) ? clamp(a.current_position) : undefined,
+    currentTemperature: finite(a.current_temperature) ? a.current_temperature : undefined,
+    climateAction: text(a.hvac_action),
+    artist: text(a.media_artist),
+    artwork:
+      typeof a.entity_picture === 'string' && /^(\/[^/]|https?:\/\/)/i.test(a.entity_picture)
+        ? a.entity_picture
+        : undefined,
+    duration: finite(a.media_duration) && a.media_duration > 0 ? a.media_duration : undefined,
+    elapsed: finite(a.media_position) ? Math.max(0, a.media_position) : undefined,
     subtitle:
       kind === 'media'
         ? text(a.media_title)
@@ -159,6 +169,32 @@ export function kindForEntity(id: string): CardKind {
       } as Record<string, CardKind>
     )[id.split('.')[0]] ?? 'sensor'
   );
+}
+
+/** Normalize service failures at the host boundary, including HA's plain WS errors. */
+export async function callHostService(
+  hass: Hass,
+  domain: string,
+  service: string,
+  data: Record<string, unknown>,
+  target: Record<string, unknown>,
+): Promise<unknown> {
+  try {
+    return await hass.callService(domain, service, data, target);
+  } catch (error) {
+    const details = error && typeof error === 'object' && 'error' in error ? error.error : error;
+    if (
+      details &&
+      typeof details === 'object' &&
+      'code' in details &&
+      (details.code === 'unauthorized' ||
+        (details.code === 'home_assistant_error' &&
+          'message' in details &&
+          details.message === 'Unauthorized'))
+    )
+      throw new PermissionDeniedError('You do not have permission to run this action.');
+    throw error;
+  }
 }
 
 export async function executeCommand(
@@ -218,5 +254,5 @@ export async function executeCommand(
         throw new Error('This control is not supported.');
       service = `${command.type}_cover`;
   }
-  await hass.callService(domain, service, data, target);
+  await callHostService(hass, domain, service, data, target);
 }

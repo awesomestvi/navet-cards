@@ -16,10 +16,39 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
+      - run: node scripts/package-verification.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: navet-cards-preview
           path: |
-            dist/navet-cards.js
+            dist/
             test-results/
+  live-ha:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        ha-version: ['2024.6.4', '2026.9.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start isolated Home Assistant
+        env:
+          HA_VERSION: ${{ matrix.ha-version }}
+        run: node scripts/ha-validation.mjs "$HA_VERSION" 18124
+      - name: Verify live backend contracts
+        env:
+          NAVET_HA_SESSION: .ha-validation/${{ matrix.ha-version }}/session.json
+        run: npm run test:live
+      - name: Home Assistant diagnostics
+        if: failure()
+        env:
+          HA_VERSION: ${{ matrix.ha-version }}
+        run: docker logs "navet-cards-ha-${HA_VERSION//./-}"

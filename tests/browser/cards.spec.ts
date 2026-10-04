@@ -49,6 +49,37 @@ test('failed commands expose a recoverable error', async ({ page }) => {
   await expect(light.getByRole('button', { name: 'On', exact: true })).toBeVisible();
 });
 
+test('permission denial explains access limits for controls and configured actions', async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    (window as any).demoHass = {
+      ...(window as any).demoHass,
+      async callService() {
+        throw { code: 'home_assistant_error', message: 'Unauthorized' };
+      },
+    };
+    (window as any).syncCards();
+  });
+  const light = page.locator('navet-light-card');
+  await light.getByRole('button', { name: 'Off', exact: true }).click();
+  await expect(light.getByRole('alert')).toHaveText(
+    'You do not have permission to run this action.',
+  );
+  await light.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.evaluate(() => {
+    (window as any).cards[0].setConfig({
+      ...(window as any).configs[0],
+      tap_action: { action: 'perform-action', perform_action: 'scene.turn_on' },
+    });
+  });
+  await light.getByRole('button', { name: 'Kitchen lights', exact: true }).click();
+  await expect(light.getByRole('alert')).toHaveText(
+    'You do not have permission to run this action.',
+  );
+  await expect(light.getByRole('button', { name: 'Off', exact: true })).toBeEnabled();
+});
+
 test('editor preserves advanced configuration and changes only its card', async ({ page }) => {
   await page.evaluate(() => {
     const editor = document.querySelector('#editor') as any;
@@ -292,10 +323,11 @@ test('default Sections dimensions keep every control visible at narrow widths', 
           tag: card.tagName,
           clipped: [...inner.querySelectorAll('input,button,output')]
             .filter((control: any) => !control.closest('dialog'))
-            .some((control: any) => control.getBoundingClientRect().bottom > container.bottom - 8),
+            .filter((control: any) => control.getBoundingClientRect().bottom > container.bottom - 8)
+            .map((control: any) => ({ tag: control.tagName, className: control.className, bottom: control.getBoundingClientRect().bottom, containerBottom: container.bottom })),
         };
       })
-      .filter((item: any) => item.clipped);
+      .filter((item: any) => item.clipped.length);
   });
   expect(overflow).toEqual([]);
 });
@@ -311,4 +343,94 @@ test('unavailable media and climate state takes priority over cached details', a
   });
   await expect(page.locator('navet-media-card').locator('.state')).toHaveText('Unavailable');
   await expect(page.locator('navet-climate-card').locator('.state')).toHaveText('Unavailable');
+});
+
+// Existing 13 tests: Keep. Their public command, isolation, accessibility and sizing contracts remain valid.
+test('brightness presets and temperature steps work with keyboard and retain owning targets', async ({
+  page,
+}) => {
+  const light = page.locator('navet-light-card');
+  await light.getByRole('button', { name: 'Brightness 50%', exact: true }).press('Enter');
+  await expect(light.getByRole('slider')).toHaveValue('50');
+  const climate = page.locator('navet-climate-card');
+  await climate.getByRole('button', { name: 'Increase temperature', exact: true }).press('Enter');
+  await expect(climate.getByRole('slider')).toHaveValue('22.5');
+  await climate.getByRole('button', { name: 'Decrease temperature', exact: true }).click();
+  await expect(climate.getByRole('slider')).toHaveValue('22');
+  const calls = await page.evaluate(() => (window as any).calls);
+  expect(calls.map((call: any) => call.target.entity_id)).toEqual([
+    'light.kitchen',
+    'climate.kitchen',
+    'climate.kitchen',
+  ]);
+  expect(calls.map((call: any) => call.data)).toEqual([
+    { brightness_pct: 50 },
+    { temperature: 22.5 },
+    { temperature: 22 },
+  ]);
+});
+
+test('cover position supports keyboard changes and broken artwork falls back', async ({ page }) => {
+  const cover = page.locator('navet-cover-card');
+  await cover.getByRole('slider', { name: 'Position' }).press('ArrowUp');
+  await expect(cover.getByRole('slider')).toHaveValue('76');
+  expect(await page.evaluate(() => (window as any).calls[0])).toMatchObject({
+    service: 'set_cover_position',
+    data: { position: 76 },
+    target: { entity_id: 'cover.kitchen' },
+  });
+  await page.route('**/broken-artwork.jpg', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.evaluate(() => {
+    const w = window as any;
+    const entity = w.demoHass.states['media_player.kitchen'];
+    w.demoHass = {
+      ...w.demoHass,
+      states: {
+        ...w.demoHass.states,
+        [entity.entity_id]: {
+          ...entity,
+          attributes: { ...entity.attributes, entity_picture: '/broken-artwork.jpg' },
+        },
+      },
+    };
+    w.syncCards();
+  });
+  await expect(page.locator('navet-media-card').locator('.artwork svg')).toBeVisible();
+  await expect(
+    page.locator('navet-media-card').getByRole('button', { name: 'Pause', exact: true }),
+  ).toBeEnabled();
+});
+
+test('compact media volume popover remains usable with long track titles', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const w = window as any;
+    const old = w.demoHass.states['media_player.kitchen'];
+    w.demoHass = {
+      ...w.demoHass,
+      states: {
+        ...w.demoHass.states,
+        [old.entity_id]: {
+          ...old,
+          attributes: {
+            ...old.attributes,
+            media_title: 'The best fireplace video playing in the living room',
+            media_artist: 'Navet Studio',
+          },
+        },
+      },
+    };
+    w.syncCards();
+    const card = w.cards[4];
+    const rows = card.getGridOptions().rows;
+    card.style.height = `${rows * 56 + (rows - 1) * 8}px`;
+  });
+  const media = page.locator('navet-media-card');
+  await media.getByRole('button', { name: 'Volume', exact: true }).press('Enter');
+  await expect(media.getByRole('slider', { name: 'Volume', exact: true })).toBeVisible();
+  await media.getByRole('slider', { name: 'Volume', exact: true }).press('ArrowRight');
+  await expect(media.getByRole('slider', { name: 'Volume', exact: true })).toHaveValue('36');
+  await media.getByRole('button', { name: 'Volume', exact: true }).press('Enter');
+  await expect(media.getByRole('slider', { name: 'Volume', exact: true })).not.toBeVisible();
+  await expect(media.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });

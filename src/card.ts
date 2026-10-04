@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 import type { CardEntity, CardKind, CardCommand } from './core';
+import { PermissionDeniedError } from './core';
 import {
   tagFor,
   type CardConfig,
@@ -10,6 +11,7 @@ import {
 } from './config';
 import {
   executeCommand,
+  callHostService,
   mapEntity,
   roomEntityIds,
   kindForEntity,
@@ -17,20 +19,12 @@ import {
 } from './providers/home-assistant';
 import { translate } from './i18n';
 import { cardStyles } from './styles';
+import { icon } from './icons';
 
 type ContextRequest = Event & {
   context: string;
   subscribe: boolean;
   callback: (states: Hass['states'], unsubscribe?: () => void) => void;
-};
-const ICONS: Record<CardKind, string> = {
-  light: 'mdi:lightbulb-outline',
-  switch: 'mdi:power-plug-outline',
-  sensor: 'mdi:gauge',
-  room: 'mdi:sofa-outline',
-  media: 'mdi:speaker',
-  climate: 'mdi:thermostat',
-  cover: 'mdi:blinds-horizontal',
 };
 
 export class NavetCard extends LitElement {
@@ -57,6 +51,7 @@ export class NavetCard extends LitElement {
   private error = '';
   private sliderDrafts = new Map<string, number>();
   private busy = false;
+  private failedArtwork?: string;
   private isPreview = false;
   private holdTimer?: ReturnType<typeof setTimeout>;
   private tapTimer?: ReturnType<typeof setTimeout>;
@@ -112,6 +107,7 @@ export class NavetCard extends LitElement {
   setConfig(input: unknown) {
     this.config = validateConfig(input, this.kind);
     this.sliderDrafts.clear();
+    this.failedArtwork = undefined;
     this.operation++;
     this.busy = false;
     this.error = '';
@@ -120,12 +116,9 @@ export class NavetCard extends LitElement {
     this.requestUpdate();
   }
   private get defaultRows() {
-    return this.kind === 'cover'
-      ? 5
-      : this.config?.layout === 'comfortable' ||
-          ['light', 'sensor', 'climate', 'media'].includes(this.kind)
-        ? 4
-        : 3;
+    if (this.config?.layout === 'comfortable' || this.kind === 'cover' || this.kind === 'media')
+      return 4;
+    return this.kind === 'switch' ? 2 : 3;
   }
   getCardSize() {
     return Math.ceil((this.defaultRows * 56 + (this.defaultRows - 1) * 8) / 50);
@@ -133,7 +126,7 @@ export class NavetCard extends LitElement {
   getGridOptions() {
     return {
       columns: 6,
-      min_columns: 3,
+      min_columns: 6,
       rows: this.defaultRows,
       min_rows: this.defaultRows,
       ...this.config?.grid_options,
@@ -215,7 +208,12 @@ export class NavetCard extends LitElement {
       await work();
     } catch (error) {
       if (!this.disposed && operation === this.operation)
-        this.error = error instanceof Error ? error.message : this.t('error');
+        this.error =
+          error instanceof PermissionDeniedError
+            ? this.t('permissionDenied')
+            : error instanceof Error
+              ? error.message
+              : this.t('error');
     } finally {
       if (!this.disposed && operation === this.operation) {
         this.busy = false;
@@ -229,7 +227,10 @@ export class NavetCard extends LitElement {
   private async perform(action?: ActionConfig) {
     if (this.disabled) return;
     if (!action) {
-      this.kind === 'room' ? await this.openRoom() : this.moreInfo();
+      if (this.kind === 'room') await this.openRoom();
+      else if (this.entity().capabilities.includes('toggle') && this.entity().available)
+        await this.command({ type: 'toggle' });
+      else this.moreInfo();
       return;
     }
     if (
@@ -255,7 +256,8 @@ export class NavetCard extends LitElement {
       case 'perform-action': {
         const [domain, service] = action.perform_action!.split('.');
         await this.run(() =>
-          this.host!.callService(
+          callHostService(
+            this.host!,
             domain,
             service,
             action.data ?? {},
@@ -334,8 +336,8 @@ export class NavetCard extends LitElement {
     const value = this.sliderDrafts.get(type) ?? entity[type] ?? 0;
     const unit =
       type === 'temperature' ? (this.host?.config?.unit_system?.temperature ?? '°C') : '%';
-    return html`<label class="slider"><span class="slider-label"><span>${this.t(type)}</span><output>${value}${unit}</output></span>
-      <input type="range" aria-label=${this.t(type)} min=${type === 'temperature' ? entity.minTemperature! : 0} max=${type === 'temperature' ? entity.maxTemperature! : 100} step=${type === 'temperature' ? entity.stepTemperature! : 1} .value=${String(value)} ?disabled=${this.disabled || !entity.available}
+    return html`<label class=${`slider ${type === 'position' ? 'cover-position' : type === 'temperature' ? 'temperature-slider' : ''}`}><span class="slider-label"><span>${this.t(type)}</span><output>${value}${unit}</output></span>
+      <input type="range" style=${styleMap({ '--progress': `${value}%` })} aria-label=${this.t(type)} min=${type === 'temperature' ? entity.minTemperature! : 0} max=${type === 'temperature' ? entity.maxTemperature! : 100} step=${type === 'temperature' ? entity.stepTemperature! : 1} .value=${String(value)} ?disabled=${this.disabled || !entity.available}
         @input=${(e: Event) => {
           this.sliderDrafts.set(type, Number((e.target as HTMLInputElement).value));
           this.requestUpdate();
@@ -350,6 +352,94 @@ export class NavetCard extends LitElement {
           });
         }} />
     </label>`;
+  }
+  private action(
+    label: string,
+    glyph: string,
+    work: () => unknown,
+    disabled = this.disabled,
+    extra = '',
+  ) {
+    return html`<button class=${`action ${extra}`} aria-label=${label} title=${label} ?disabled=${disabled} @click=${work}>${icon(glyph)}</button>`;
+  }
+  private details() {
+    return this.action(
+      this.t('details'),
+      'details',
+      () => this.moreInfo(),
+      this.disabled,
+      'details',
+    );
+  }
+  private temperatureStep(entity: CardEntity, direction: number) {
+    const value = Math.max(
+      entity.minTemperature!,
+      Math.min(
+        entity.maxTemperature!,
+        (entity.temperature ?? entity.minTemperature!) + direction * entity.stepTemperature!,
+      ),
+    );
+    void this.command({ type: 'temperature', value: Number(value.toFixed(3)) }, entity);
+  }
+  private familyContent(entity: CardEntity, value: string, members: CardEntity[]) {
+    const unavailable = this.disabled || !entity.available;
+    switch (this.kind) {
+      case 'light':
+        return html`${this.config?.show_state !== false && !entity.available ? html`<span class="state">${value}</span>` : nothing}
+          ${this.slider(entity, 'brightness')}
+          <div class="actions">${entity.capabilities.includes('brightness') && this.config?.show_brightness !== false ? [100, 50].map((preset) => html`<button class=${`action ${entity.active && entity.brightness === preset ? 'selected' : ''}`} aria-label=${`${this.t('brightness')} ${preset}%`} aria-pressed=${entity.active && entity.brightness === preset} ?disabled=${unavailable} @click=${() => this.command({ type: 'brightness', value: preset }, entity)}>${preset}</button>`) : nothing}${this.details()}</div>`;
+      case 'switch':
+        return !entity.available && this.config?.show_state !== false
+          ? html`<span class="state">${value}</span>`
+          : nothing;
+      case 'sensor':
+        return this.config?.show_state === false
+          ? nothing
+          : html`<div class="sensor-value"><div class=${`metric ${value.length > 10 ? 'long' : ''}`}><span>${value}</span>${entity.available ? html`<span class="unit">${entity.unit}</span>` : nothing}</div></div>`;
+      case 'climate': {
+        const unit = this.host?.config?.unit_system?.temperature ?? '°C';
+        const operating =
+          entity.climateAction === 'heating'
+            ? this.t('heating')
+            : entity.climateAction === 'cooling'
+              ? this.t('cooling')
+              : this.t(entity.state);
+        return html`<div class="climate-visual" aria-hidden="true"><div class="dial"></div></div>${this.slider(entity, 'temperature')}
+          <div class="climate-value">${
+            this.config?.show_state !== false
+              ? html`<div class="metric">${entity.available ? (entity.currentTemperature ?? entity.temperature ?? '—') : '—'}<span class="unit">${unit}</span></div>
+          <div class="state climate-state">${entity.available ? `${operating}${entity.temperature !== undefined ? ` · ${this.t('target')} ${entity.temperature}${unit}` : ''}` : value}</div>`
+              : nothing
+          }</div>
+          <div class="actions">${entity.capabilities.includes('temperature') ? html`${this.action(this.t('decreaseTemperature'), 'minus', () => this.temperatureStep(entity, -1), unavailable || entity.temperature! <= entity.minTemperature!)}${this.action(this.t('increaseTemperature'), 'plus', () => this.temperatureStep(entity, 1), unavailable || entity.temperature! >= entity.maxTemperature!)}` : nothing}${this.details()}</div>`;
+      }
+      case 'cover':
+        return html`<div class="cover-fill" style=${styleMap({ '--closure': String((100 - (this.sliderDrafts.get('position') ?? entity.position ?? (entity.active ? 100 : 0))) / 100) })}></div>${this.slider(entity, 'position')}
+          <div class="cover-value">${this.config?.show_state !== false ? html`<div class="metric">${entity.available && entity.position !== undefined ? `${this.sliderDrafts.get('position') ?? entity.position}%` : '—'}</div><div class="state">${value}</div>` : nothing}</div>
+          <div class="actions">${(['open', 'stop', 'close'] as const).filter((type) => entity.capabilities.includes(type)).map((type) => this.action(this.t(type), type, () => this.command({ type }, entity), unavailable))}${this.details()}</div>`;
+      case 'media': {
+        const time = (seconds: number) =>
+          `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+        return html`<div class="artwork">${
+          entity.available && entity.artwork && this.failedArtwork !== entity.artwork
+            ? html`<img src=${entity.artwork} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error=${() => {
+                this.failedArtwork = entity.artwork;
+                this.requestUpdate();
+              }} />`
+            : icon('disc')
+        }</div>
+          ${this.config?.show_state !== false ? html`<div class="media-info"><div class="state track">${entity.available ? entity.subtitle || value : value}</div>${entity.available && entity.artist ? html`<div class="artist">${entity.artist}</div>` : nothing}</div>` : nothing}
+          ${entity.available && entity.duration ? html`<div class="timeline"><span>${time(Math.min(entity.elapsed ?? 0, entity.duration))}</span><progress aria-label=${this.t('position')} max=${entity.duration} value=${entity.elapsed ?? 0}></progress><span>${time(entity.duration)}</span></div>` : nothing}
+          <div class="actions">${entity.capabilities.includes('volume') ? html`<details class="volume-control"><summary class="action" role="button" aria-label=${this.t('volume')} title=${this.t('volume')}>${icon('volume')}</summary><div class="volume-panel">${this.slider(entity, 'volume')}</div></details>` : nothing}${entity.capabilities.includes(entity.state === 'playing' ? 'pause' : 'play') ? this.action(this.t(entity.state === 'playing' ? 'pause' : 'play'), entity.state === 'playing' ? 'pause' : 'play', () => this.command({ type: 'play_pause' }, entity), unavailable) : nothing}${this.details()}</div>`;
+      }
+      case 'room': {
+        const count = members.filter((member) => member.available && member.active).length;
+        return html`<div class="room-summary"><span class="room-count">${count}</span><span class="state">${this.t('active')} · ${members.length} ${this.t('entities')}</span></div>
+          <div class="room-members">${members.slice(0, 4).map((member) => html`<button class="icon" aria-label=${member.name} title=${member.name} ?disabled=${this.disabled} @click=${() => this.moreInfo(member.externalId)}>${icon(kindForEntity(member.externalId))}</button>`)}</div>
+          ${!members.length ? html`<p class="notice">${this.t(this.config?.area && !this.host?.entities ? 'roomUnavailable' : 'roomEmpty')}</p>` : nothing}
+          <div class="actions">${this.action(this.t('controls'), 'details', () => this.openRoom(), this.disabled || !members.length, 'details')}</div>`;
+      }
+    }
   }
   protected render() {
     if (!this.config) return nothing;
@@ -373,36 +463,45 @@ export class NavetCard extends LitElement {
           ? entity.value
           : this.t(entity.state);
     const appearance = config.appearance;
+    const theme =
+      appearance?.theme && appearance.theme !== 'auto'
+        ? appearance.theme
+        : host?.themes?.darkMode === false
+          ? 'light'
+          : 'dark';
+    const accent =
+      appearance?.accent ??
+      (this.kind === 'sensor'
+        ? '#fda4af'
+        : this.kind === 'climate' && (entity.state === 'cool' || entity.climateAction === 'cooling')
+          ? '#38bdf8'
+          : '#f97316');
     const styles = {
       '--navet-card-accent': appearance?.accent,
+      '--family-accent': accent,
       '--navet-card-radius':
         appearance?.radius !== undefined ? `${appearance.radius}px` : undefined,
     };
-    return html`<div class="card" style=${styleMap(styles)} data-theme=${appearance?.theme ?? 'auto'} data-layout=${config.layout ?? 'compact'} ?data-active=${active} aria-busy=${this.busy}>
-      <button class="primary" ?disabled=${this.disabled} aria-label=${name}
-        @click=${this.primaryClick} @pointerdown=${this.pointerDown} @pointermove=${this.pointerMove} @pointerup=${this.cancelHold} @pointerleave=${this.cancelHold} @pointercancel=${() => {
-          this.cancelHold();
-          this.held = true;
-        }} @contextmenu=${(e: Event) => {
-          if (config.hold_action) e.preventDefault();
-        }}>
-        <span class="icon"><ha-icon .icon=${config.icon ?? ICONS[this.kind]}></ha-icon></span>
-        <span class="labels"><span class="name">${name}</span>
-          ${config.show_state === false ? nothing : html`<span class="state">${this.kind === 'room' ? `${members.filter((e) => e.active && e.available).length} ${this.t('active')} · ${ids.length} ${this.t('entities')}` : !host || !entity.available ? value : (entity.subtitle ?? (this.kind === 'sensor' ? nothing : value))}</span>`}
-        </span><span class="status-dot" aria-hidden="true"></span>
-      </button>
-      ${this.kind === 'sensor' && config.show_state !== false ? html`<div class=${`metric ${value.length > 10 ? 'long' : ''}`}><span>${value}</span>${entity.available ? html`<span class="unit">${entity.unit}</span>` : nothing}</div>` : nothing}
-      ${this.kind === 'light' ? this.slider(entity, 'brightness') : nothing}
-      ${this.kind === 'media' ? this.slider(entity, 'volume') : nothing}
-      ${this.kind === 'climate' ? this.slider(entity, 'temperature') : nothing}
-      ${this.kind === 'cover' ? this.slider(entity, 'position') : nothing}
-      ${this.kind === 'room' && !ids.length ? html`<p class="notice">${this.t(config.area && !host?.entities ? 'roomUnavailable' : 'roomEmpty')}</p>` : nothing}
-      <div class="actions">
-        ${entity.capabilities.includes('toggle') ? html`<button class="action accent" ?disabled=${this.disabled || !entity.available} @click=${() => this.command({ type: 'toggle' })}>${this.t(entity.active ? 'off' : 'on')}</button>` : nothing}
-        ${this.kind === 'media' && entity.capabilities.includes(entity.state === 'playing' ? 'pause' : 'play') ? html`<button class="action accent" ?disabled=${this.disabled || !entity.available} @click=${() => this.command({ type: 'play_pause' })}>${this.t(entity.state === 'playing' ? 'pause' : 'play')}</button>` : nothing}
-        ${this.kind === 'cover' ? (['open', 'stop', 'close'] as const).filter((type) => entity.capabilities.includes(type)).map((type) => html`<button class="action" ?disabled=${this.disabled || !entity.available} @click=${() => this.command({ type })}>${this.t(type)}</button>`) : nothing}
-        ${this.kind === 'room' ? html`<button class="action" ?disabled=${this.disabled || !ids.length} @click=${this.openRoom}>${this.t('controls')}</button>` : html`<button class="action" ?disabled=${this.disabled} @click=${() => this.moreInfo()}>${this.t('details')}</button>`}
+    const glyph =
+      this.kind === 'climate' && (entity.state === 'cool' || entity.climateAction === 'cooling')
+        ? 'cool'
+        : this.kind;
+    const toggles = entity.capabilities.includes('toggle');
+    return html`<div class="card" style=${styleMap(styles)} data-kind=${this.kind} data-theme=${theme} data-layout=${config.layout ?? 'compact'} ?data-active=${active} aria-busy=${this.busy}>
+      <div class="header">
+        ${toggles ? html`<button class="icon" aria-label=${this.t(entity.active ? 'off' : 'on')} title=${this.t(entity.active ? 'off' : 'on')} aria-pressed=${entity.active} ?disabled=${this.disabled || !entity.available} @click=${() => this.command({ type: 'toggle' }, entity)}>${config.icon ? html`<ha-icon .icon=${config.icon}></ha-icon>` : icon(glyph)}</button>` : html`<span class="icon" aria-hidden="true">${config.icon ? html`<ha-icon .icon=${config.icon}></ha-icon>` : icon(glyph)}</span>`}
+        <button class="primary" ?disabled=${this.disabled} aria-label=${name}
+          @click=${this.primaryClick} @pointerdown=${this.pointerDown} @pointermove=${this.pointerMove} @pointerup=${this.cancelHold} @pointerleave=${this.cancelHold} @pointercancel=${() => {
+            this.cancelHold();
+            this.held = true;
+          }} @contextmenu=${(e: Event) => {
+            if (config.hold_action) e.preventDefault();
+          }}>
+          <span class="labels"><span class="eyebrow">${this.t(this.kind)}</span><span class="name">${name}</span></span>
+        </button>
+        ${this.kind === 'switch' || this.kind === 'sensor' ? this.action(this.t('details'), 'details', () => this.moreInfo(), this.disabled, this.kind === 'sensor' ? 'sensor-details' : 'details') : nothing}
       </div>
+      ${this.familyContent(entity, value, members)}
       ${
         this.error
           ? html`<div class="error-row"><p class="notice error" role="alert">${this.error}</p><button class="dismiss" aria-label=${this.t('close')} @click=${() => {

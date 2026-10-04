@@ -2,6 +2,8 @@
 
 ## Automated evidence
 
+Use [verification status](verification-status.md) for the beta's recorded evidence and [human verification](human-verification.md) for installation and acceptance.
+
 - Install from the lockfile with `npm ci`.
 - Run `npm run check` with Chromium available.
 - Verify `dist/navet-cards.js` stays under the bundle budget and embeds the package version.
@@ -22,7 +24,7 @@
 ## Distribution validation
 
 - Verify a clean manual install, versioned resource refresh, upgrade, and rollback.
-- Keep the repository private during development. To offer HACS installation to users, publish the repository and validate it as a Dashboard custom repository.
+- Prepare a tested release resource and validate installation as a HACS Dashboard custom repository.
 - Verify HACS installs the single `navet-cards.js` resource from the release, registers it, and upgrades it correctly.
 - Set the supported Home Assistant minimum from live evidence, then align `hacs.json` and README.
 - Record tested HA/browser/app versions and unresolved issues in release notes.

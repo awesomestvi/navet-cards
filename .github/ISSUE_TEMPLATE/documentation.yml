@@ -1,0 +1,17 @@
+name: Documentation improvement
+description: Report unclear installation or configuration guidance.
+labels: [documentation]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Document or section
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What is unclear, and what would help?
+      description: Include the step you were trying to complete.
+    validations:
+      required: true

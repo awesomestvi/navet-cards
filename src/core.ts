@@ -1,4 +1,6 @@
 /** Provider-neutral inputs consumed by card presentation. */
+export class PermissionDeniedError extends Error {}
+
 export type CardKind = 'light' | 'switch' | 'sensor' | 'room' | 'media' | 'climate' | 'cover';
 export type Capability =
   | 'toggle'
@@ -29,6 +31,12 @@ export interface CardEntity {
   stepTemperature?: number;
   position?: number;
   subtitle?: string;
+  currentTemperature?: number;
+  climateAction?: string;
+  artist?: string;
+  artwork?: string;
+  duration?: number;
+  elapsed?: number;
 }
 export type CardCommand =
   | { type: 'toggle' | 'play_pause' | 'open' | 'close' | 'stop' }
