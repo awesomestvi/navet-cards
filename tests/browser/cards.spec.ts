@@ -323,10 +323,11 @@ test('default Sections dimensions keep every control visible at narrow widths', 
           tag: card.tagName,
           clipped: [...inner.querySelectorAll('input,button,output')]
             .filter((control: any) => !control.closest('dialog'))
-            .some((control: any) => control.getBoundingClientRect().bottom > container.bottom - 8),
+            .filter((control: any) => control.getBoundingClientRect().bottom > container.bottom - 8)
+            .map((control: any) => ({ tag: control.tagName, className: control.className, bottom: control.getBoundingClientRect().bottom, containerBottom: container.bottom })),
         };
       })
-      .filter((item: any) => item.clipped);
+      .filter((item: any) => item.clipped.length);
   });
   expect(overflow).toEqual([]);
 });
