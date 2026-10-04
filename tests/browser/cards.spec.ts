@@ -49,6 +49,23 @@ test('failed commands expose a recoverable error', async ({ page }) => {
   await expect(light.getByRole('button', { name: 'On', exact: true })).toBeVisible();
 });
 
+test('permission denial explains access limits for controls and configured actions', async ({ page }) => {
+  await page.evaluate(() => {
+    (window as any).demoHass = { ...(window as any).demoHass, async callService() { throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' }; } };
+    (window as any).syncCards();
+  });
+  const light = page.locator('navet-light-card');
+  await light.getByRole('button', { name: 'Off', exact: true }).click();
+  await expect(light.getByRole('alert')).toHaveText('You do not have permission to run this action.');
+  await light.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.evaluate(() => {
+    (window as any).cards[0].setConfig({ ...(window as any).configs[0], tap_action: { action: 'perform-action', perform_action: 'scene.turn_on' } });
+  });
+  await light.getByRole('button', { name: 'Kitchen lights', exact: true }).click();
+  await expect(light.getByRole('alert')).toHaveText('You do not have permission to run this action.');
+  await expect(light.getByRole('button', { name: 'Off', exact: true })).toBeEnabled();
+});
+
 test('editor preserves advanced configuration and changes only its card', async ({ page }) => {
   await page.evaluate(() => {
     const editor = document.querySelector('#editor') as any;

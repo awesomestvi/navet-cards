@@ -5,11 +5,24 @@ import {
   mapEntity,
   roomEntityIds,
   executeCommand,
+  callHostService,
   type Hass,
 } from '../src/providers/home-assistant';
+import { PermissionDeniedError } from '../src/core';
 
 const switchConfig = { type: 'custom:navet-switch-card', entity: 'switch.coffee' };
 const hass = (states: Hass['states'] = {}): Hass => ({ states, async callService() {} });
+test('host service permission failures normalize for controls and configured actions', async () => {
+  const host: Hass = { states: {}, async callService() { throw { code: 'unauthorized', message: 'Unauthorized' }; } };
+  await assert.rejects(callHostService(host, 'scene', 'turn_on', {}, {}), PermissionDeniedError);
+  const model = mapEntity({ entity_id: 'switch.test', state: 'off', attributes: {} }, 'switch', 'switch.test');
+  await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
+  host.callService = async () => { throw { error: { code: 'unauthorized', message: 'Unauthorized' }, message: 'Unauthorized' }; };
+  await assert.rejects(executeCommand(host, model, { type: 'toggle' }), PermissionDeniedError);
+  const networkError = new Error('Connection lost');
+  host.callService = async () => { throw networkError; };
+  await assert.rejects(callHostService(host, 'switch', 'turn_on', {}, {}), (error) => error === networkError);
+});
 test('configuration is isolated and advanced fields survive round-tripping', () => {
   const input = {
     ...switchConfig,

@@ -1,4 +1,5 @@
 import type { CardEntity, CardKind, CardCommand, Capability } from '../core';
+import { PermissionDeniedError } from '../core';
 
 export interface HassEntity {
   entity_id: string;
@@ -161,6 +162,24 @@ export function kindForEntity(id: string): CardKind {
   );
 }
 
+/** Normalize service failures at the host boundary, including HA's plain WS errors. */
+export async function callHostService(
+  hass: Hass,
+  domain: string,
+  service: string,
+  data: Record<string, unknown>,
+  target: Record<string, unknown>,
+): Promise<unknown> {
+  try {
+    return await hass.callService(domain, service, data, target);
+  } catch (error) {
+    const details = error && typeof error === 'object' && 'error' in error ? error.error : error;
+    if (details && typeof details === 'object' && 'code' in details && details.code === 'unauthorized')
+      throw new PermissionDeniedError('You do not have permission to run this action.');
+    throw error;
+  }
+}
+
 export async function executeCommand(
   hass: Hass,
   entity: CardEntity,
@@ -218,5 +237,5 @@ export async function executeCommand(
         throw new Error('This control is not supported.');
       service = `${command.type}_cover`;
   }
-  await hass.callService(domain, service, data, target);
+  await callHostService(hass, domain, service, data, target);
 }

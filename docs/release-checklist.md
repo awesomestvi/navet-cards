@@ -2,6 +2,8 @@
 
 ## Automated evidence
 
+Use [verification status](verification-status.md) for the private beta's recorded evidence and [human verification](human-verification.md) for installation and acceptance.
+
 - Install from the lockfile with `npm ci`.
 - Run `npm run check` with Chromium available.
 - Verify `dist/navet-cards.js` stays under the bundle budget and embeds the package version.

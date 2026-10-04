@@ -2,7 +2,7 @@
 
 Configurable cards for Home Assistant dashboards, using Navet's compact layout, warm state accents, and direct household controls.
 
-This private development repository contains light, switch, sensor, room, media, climate, and cover cards. The build and browser tests use a simulated Home Assistant host. Live Home Assistant, companion-app, and HACS installation checks are pending. Home Assistant 2024.6 is the compatibility target; confirm it in a test instance before publishing a supported-version claim.
+This private beta contains light, switch, sensor, room, media, climate, and cover cards. Automated browser tests use a simulated host; integration checks also use isolated Home Assistant 2024.6.4 and 2026.9.4 instances with demo entities. Real household devices, companion apps, and HACS installation are acceptance gates. See [verification status](docs/verification-status.md) and [human verification](docs/human-verification.md).
 
 ## Try the cards
 
@@ -21,7 +21,7 @@ Open [the local preview](http://127.0.0.1:4178/demo/). The preview uses simulate
 1. Build the resource with `npm ci` and `npm run build`.
 2. Copy `dist/navet-cards.js` into your Home Assistant `/config/www/` directory. If you create the `www` directory for the first time, restart Home Assistant.
 3. Open your dashboard, choose **Edit dashboard**, open its menu, and select **Manage resources**. Enable Advanced mode in your Home Assistant profile if the resource menu is hidden.
-4. Add `/local/navet-cards.js?v=0.1.0` as a **JavaScript Module** resource.
+4. Add `/local/navet-cards.js?v=0.1.0-beta.1` as a **JavaScript Module** resource. Update an existing Navet resource rather than registering a second copy.
 5. Refresh the dashboard. Choose **Add card** and search for **Navet**.
 6. Select a supported entity and configure the card in the visual editor or YAML.
 
@@ -29,11 +29,13 @@ For a YAML-managed resource list:
 
 ```yaml
 resources:
-  - url: /local/navet-cards.js?v=0.1.0
+  - url: /local/navet-cards.js?v=0.1.0-beta.1
     type: module
 ```
 
 When replacing the resource, change the version in its URL and reload each browser or companion-app frontend. Keep a copy of the previous resource to roll back. Existing dashboard card configurations stay in Home Assistant.
+
+Run `npm run package:verification` to produce a verification folder and ZIP under `dist/`, including the resource, checksum, instructions, and test status.
 
 The repository is private, so use the manual build installation above. The HACS manifest and release workflow are prepared for a public Dashboard repository. HACS custom-repository installation and catalog submission require a publicly accessible repository and separate validation.
 
@@ -83,7 +85,7 @@ Common fields:
 | `appearance.theme` | `auto`, `light`, `dark`, `black`, or `glass` | `auto` follows HA theme |
 | `grid_options` | Home Assistant Sections placement | Card-specific sizing |
 
-`layout` changes the card's internal composition. Home Assistant owns placement through `grid_options`. Use enough rows for the controls and wrapped titles; `rows: auto` lets Home Assistant use the card's content height. Cards also provide Masonry sizing.
+`layout` changes the card's internal composition. Home Assistant owns placement through `grid_options` on versions with Sections sizing controls. Use enough rows for the controls and wrapped titles; `rows: auto` lets Home Assistant use the card's content height. On Home Assistant 2024.6.4, Sections uses full-width custom cards. Cards also provide Masonry sizing.
 
 ### Sensors
 
@@ -121,6 +123,8 @@ An explicit entity list takes precedence over area membership and works when reg
 ### Actions
 
 Entity card titles open **more-info** by default. Room titles open the room dialog. Buttons and sliders perform their labeled controls. Optional `tap_action`, `hold_action`, and `double_tap_action` apply to the card title/icon area. Keyboard activation performs the tap action.
+
+Home Assistant enforces account permissions. A denied control or configured action displays a permission explanation, and **Close** dismisses it. Entity details remain available to accounts that can read the entity.
 
 Supported actions are `none`, `more-info`, `toggle` on light/switch cards, `navigate`, and `perform-action`:
 
@@ -165,7 +169,7 @@ npm run test:browser
 
 `npm run check` runs all checks with Chromium installed. CI runs the same checks and saves the generated resource and test screenshots. The build bundles Lit and CSS into one JavaScript file, with a 160 kB uncompressed budget and no runtime CDN dependencies.
 
-The test host verifies state/actions, editor field preservation, instance isolation, read-only previews, hold/double-tap behavior, context cleanup, missing/unavailable entities, recoverable failures, a 30-card dashboard, and responsive themes. Browser tests are a development gate; use [the release checklist](docs/release-checklist.md) for live compatibility and installation validation.
+The test host verifies state/actions, editor field preservation, instance isolation, read-only previews, hold/double-tap behavior, context cleanup, missing/unavailable entities, recoverable failures, permission messages, a 30-card dashboard, and responsive themes. For opt-in checks against an isolated real Home Assistant backend, use the [local validation setup](docs/human-verification.md#disposable-local-test-host). Use [the release checklist](docs/release-checklist.md) for household-device, companion-app, and distribution acceptance.
 
 ## Architecture
 

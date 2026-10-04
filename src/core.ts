@@ -1,4 +1,6 @@
 /** Provider-neutral inputs consumed by card presentation. */
+export class PermissionDeniedError extends Error {}
+
 export type CardKind = 'light' | 'switch' | 'sensor' | 'room' | 'media' | 'climate' | 'cover';
 export type Capability =
   | 'toggle'

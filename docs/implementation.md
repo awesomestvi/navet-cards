@@ -2,7 +2,7 @@
 
 The development collection uses native Lit custom elements with isolated Shadow DOM styles. Source, builds, configuration, tests, and distribution tooling live in this independent repository.
 
-The standalone-repository requirement changes the audit's proposed monorepo layout. Provider-neutral card models and an injected HA adapter live locally. Their initial light command semantics follow Navet's `homeassistant-adapter.ts`; visual geometry follows Navet's compact card family and surface tokens. There is no automatic shared-package synchronization. Future shared extraction should be a versioned package with its own API and parity checks, rather than relative imports into another checkout.
+Provider-neutral card models and an injected HA adapter live locally. Light command semantics follow Navet's `homeassistant-adapter.ts`; visual geometry follows Navet's compact card family and surface tokens. Shared extraction requires a versioned package with its own API and parity checks.
 
 ## Completed development scope
 
@@ -20,11 +20,13 @@ The editor's advanced action labels currently use English. English is the fallba
 
 Contract tests exercise validation, normalized capability state, explicit provider ownership, area resolution, command translation, and errors. Browser tests exercise actual custom elements in a simulated host, including lifecycle, gestures, visual editing, layout, and a 30-card dashboard. TypeScript and the bundled artifact are checked separately.
 
-Live Sections/Masonry rendering, coexistence with Bubble Card, companion-app WebViews, non-admin registry availability, real service errors, fresh HA resource loading, and upgrade/rollback remain release gates. Test those before declaring stable compatibility. The current HA minimum is a target, not an empirical compatibility result.
+Isolated Home Assistant 2024.6.4 and 2026.9.4 checks exercise real backend services, area registries, household-member access, and read-only service denial using demo entities. Rendered Home Assistant checks cover Sections/Masonry, native details, the visual editor, saved configuration, responsive sizing, and versioned resource loading. See the [verification status](verification-status.md) for the scope of evidence.
+
+Household devices, coexistence with Bubble Card, companion-app WebViews, and public HACS installation/upgrade remain acceptance gates. The beta resource and [human verification guide](human-verification.md) are prepared for that evaluation.
 
 ## Next increments and evaluation
 
-1. **Live installation beta:** follow the release checklist in an isolated Home Assistant test instance; verify the compatibility target and the current stable version.
+1. **Household beta acceptance:** follow the human verification guide with real devices and companion apps, then complete the public-distribution gates in the release checklist.
 2. **Sensor history:** reuse the supplied HA API, fetch a bounded interval once per visible entity/range, share in-flight requests, cancel/ignore obsolete responses, and revalidate HA history response contracts. Add a configurable sparkline only after that service boundary is tested.
 3. **Richer room controls:** add normalized inline member controls and explicit composition. The current room dialog delegates detailed control to HA; custom nested Lovelace-card composition needs a separate host contract and focus/coexistence testing.
 4. **Richer entity controls:** add light color/temperature, climate modes/range targets, media source selection/artwork, and cover tilt through capability-specific normalization and commands.

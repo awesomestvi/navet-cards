@@ -1,6 +1,6 @@
 {
   "name": "navet-cards",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "Configurable Navet cards for Home Assistant dashboards",
   "license": "AGPL-3.0-only",
@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:browser": "playwright test",
-    "check": "npm run typecheck && npm test && npm run build && npm run test:browser"
+    "check": "npm run typecheck && npm test && npm run build && npm run test:browser",
+    "ha:validation": "node scripts/ha-validation.mjs",
+    "test:live": "node --import tsx --test tests/live/*.test.ts",
+    "package:verification": "npm run check && node scripts/package-verification.mjs"
   },
   "dependencies": {
     "lit": "^3.3.1"

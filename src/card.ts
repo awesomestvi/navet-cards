@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 import type { CardEntity, CardKind, CardCommand } from './core';
+import { PermissionDeniedError } from './core';
 import {
   tagFor,
   type CardConfig,
@@ -10,6 +11,7 @@ import {
 } from './config';
 import {
   executeCommand,
+  callHostService,
   mapEntity,
   roomEntityIds,
   kindForEntity,
@@ -215,7 +217,9 @@ export class NavetCard extends LitElement {
       await work();
     } catch (error) {
       if (!this.disposed && operation === this.operation)
-        this.error = error instanceof Error ? error.message : this.t('error');
+        this.error = error instanceof PermissionDeniedError
+          ? this.t('permissionDenied')
+          : error instanceof Error ? error.message : this.t('error');
     } finally {
       if (!this.disposed && operation === this.operation) {
         this.busy = false;
@@ -255,7 +259,8 @@ export class NavetCard extends LitElement {
       case 'perform-action': {
         const [domain, service] = action.perform_action!.split('.');
         await this.run(() =>
-          this.host!.callService(
+          callHostService(
+            this.host!,
             domain,
             service,
             action.data ?? {},
