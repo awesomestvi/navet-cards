@@ -28,7 +28,7 @@ export const cardStyles = css`
   [data-active] .icon { color:var(--text); }
   svg { display:block; width:100%; height:100%; }
   ha-icon { --mdc-icon-size:16px; width:16px; height:16px; }
-  .actions { display:flex; align-items:center; gap:6px; margin-top:auto; z-index:2; }
+  .actions { display:flex; align-items:center; gap:6px; margin-top:auto; z-index:2; flex-shrink:0; }
   .action { font-size:11px; }
   .action.selected { background:color-mix(in srgb,var(--accent) 70%,transparent); color:#fff; }
   .details { margin-inline-start:auto; }
@@ -54,7 +54,7 @@ export const cardStyles = css`
   .error { color:var(--error-color,#fca5a5); }
   .dismiss { margin-inline-start:auto; padding:6px; background:none; border:0; }
   .climate-value { margin-top:auto; z-index:1; max-width:70%; }
-  .climate-value .metric { font-weight:650; }
+  .climate-value .metric { font-weight:650; line-height:36px; }
   .climate-state { font-size:12px; line-height:18px; color:var(--muted); }
   .climate-visual { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
   .dial { position:absolute; width:190px; height:190px; right:-106px; top:50%; transform:translateY(-50%); border-radius:50%; border:13px solid color-mix(in srgb,var(--accent) 55%,#4b5563); box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 20%,transparent),inset 0 0 0 5px rgba(0,0,0,.15),inset 0 0 26px rgba(255,255,255,.12); background:radial-gradient(circle at 25% 40%,rgba(255,255,255,.12),transparent 70%); }
@@ -109,6 +109,7 @@ export const cardStyles = css`
   @container (max-width:220px) {
     .card { gap:7px; }
     .name { font-size:12px; }
+    [data-kind='climate'] .name { -webkit-line-clamp:1; }
     .card[data-kind='media'] { padding-left:12px; padding-top:78px; min-height:248px; }
     .artwork { width:100%; height:66px; }
     .artwork svg { width:40px; height:40px; }

@@ -408,7 +408,7 @@ export class NavetCard extends LitElement {
           <div class="climate-value">${
             this.config?.show_state !== false
               ? html`<div class="metric">${entity.available ? (entity.currentTemperature ?? entity.temperature ?? '—') : '—'}<span class="unit">${unit}</span></div>
-          <div class="state climate-state">${entity.available ? `${operating}${entity.temperature !== undefined ? ` · ${this.t('target')} ${entity.temperature}${unit}` : ''}` : value}</div>`
+          <div class="state climate-state">${entity.available ? `${operating}${entity.temperature !== undefined ? ` · ${this.t('target')} ${entity.temperature}${unit}` : ''}` : value}</div>`
               : nothing
           }</div>
           <div class="actions">${entity.capabilities.includes('temperature') ? html`${this.action(this.t('decreaseTemperature'), 'minus', () => this.temperatureStep(entity, -1), unavailable || entity.temperature! <= entity.minTemperature!)}${this.action(this.t('increaseTemperature'), 'plus', () => this.temperatureStep(entity, 1), unavailable || entity.temperature! >= entity.maxTemperature!)}` : nothing}${this.details()}</div>`;
