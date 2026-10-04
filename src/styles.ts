@@ -60,12 +60,12 @@ export const cardStyles = css`
   .dial { position:absolute; width:190px; height:190px; right:-106px; top:50%; transform:translateY(-50%); border-radius:50%; border:13px solid color-mix(in srgb,var(--accent) 55%,#4b5563); box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 20%,transparent),inset 0 0 0 5px rgba(0,0,0,.15),inset 0 0 26px rgba(255,255,255,.12); background:radial-gradient(circle at 25% 40%,rgba(255,255,255,.12),transparent 70%); }
   .dial::after { content:''; position:absolute; inset:-28px; border-radius:50%; background:repeating-conic-gradient(from 2deg,rgba(255,255,255,.18) 0deg 1deg,transparent 1deg 14deg); mask:radial-gradient(transparent 68%,#000 69% 73%,transparent 74%); }
   .temperature-slider { position:absolute; inset:12px; z-index:1; }
-  .temperature-slider .slider-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .temperature-slider .slider-label { position:absolute; width:1px; height:1px; overflow:hidden; white-space:nowrap; clip-path:inset(50%); }
   .temperature-slider input { position:absolute; width:76px; height:100%; right:0; top:0; writing-mode:vertical-lr; direction:rtl; opacity:0; }
   .temperature-slider input:focus-visible { opacity:1; }
   .cover-fill { position:absolute; inset:0 0 auto; height:calc(52px + (100% - 118px) * var(--closure,.25)); background:repeating-linear-gradient(0deg,transparent 0 6px,rgba(0,0,0,.06) 6px 8px),linear-gradient(135deg,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent) 25%,transparent)); border-bottom:1px solid color-mix(in srgb,var(--accent) 45%,transparent); pointer-events:none; }
   .cover-position { position:absolute; inset:40px 10px 54px auto; width:32px; z-index:3; }
-  .cover-position .slider-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .cover-position .slider-label { position:absolute; width:1px; height:1px; overflow:hidden; white-space:nowrap; clip-path:inset(50%); }
   .cover-position input { writing-mode:vertical-lr; direction:rtl; width:32px; height:100%; }
   .cover-position input::-webkit-slider-runnable-track { width:2px; height:100%; background:transparent; }
   .cover-position input::-webkit-slider-thumb { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m9 10 3-3 3 3m-6 4 3 3 3-3' stroke='%23666' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); width:24px; height:24px; margin:0 0 0 -11px; background-color:var(--text); box-shadow:0 1px 5px rgba(0,0,0,.2); }
