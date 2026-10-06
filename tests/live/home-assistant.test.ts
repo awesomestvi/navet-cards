@@ -120,6 +120,30 @@ test(`live Home Assistant ${session.version}: real capability and service round 
     const dashboard = await call('lovelace/config', { url_path: 'navet-verification' });
     assert.equal(dashboard.views.length, 4);
     assert.ok(dashboard.views[1].sections[0].cards.some((card: any) => card.type === 'custom:navet-light-card'));
+    // Keep existing live contracts; add disposable helper service round trips.
+    let numberId: string | undefined;
+    let selectId: string | undefined;
+    try {
+      numberId = (await call('input_number/create', { name: 'Navet delivery offset', min: -10, max: 10, step: 0.5, initial: -2 })).id;
+      selectId = (await call('input_select/create', { name: 'Navet delivery mode', options: ['Eco', 'Comfort'], initial: 'Eco' })).id;
+      assert.ok(numberId); assert.ok(selectId);
+      await eventually(async()=>!!(await host()).states[`input_number.${numberId}`] && !!(await host()).states[`input_select.${selectId}`]);
+      const number = await entity('number', `input_number.${numberId}`);
+      await executeCommand(number.hass, number.model, { type: 'number', value: -1.5 });
+      await eventually(async()=>(await entity('number', `input_number.${numberId}`)).model.number === -1.5);
+      const select = await entity('select', `input_select.${selectId}`);
+      await executeCommand(select.hass, select.model, { type: 'select', value: 'Comfort' });
+      await eventually(async()=>(await entity('select', `input_select.${selectId}`)).model.state === 'Comfort');
+      const heating = await entity('climate', 'climate.hvac');
+      if (heating.model.hvacModes?.includes('off')) {
+        await executeCommand(heating.hass, heating.model, {type:'hvac_mode',value:'off'});
+        await eventually(async()=>(await entity('climate','climate.hvac')).model.state === 'off');
+        if (heating.model.hvacModes.includes(heating.model.state)) await executeCommand(heating.hass,heating.model,{type:'hvac_mode',value:heating.model.state});
+      }
+    } finally {
+      if (numberId) await call('input_number/delete', {input_number_id:numberId});
+      if (selectId) await call('input_select/delete', {input_select_id:selectId});
+    }
     for (const [role, user] of Object.entries(session.verificationUsers) as [string, any][]) {
       const flow = await fetch(session.base + '/auth/login_flow', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

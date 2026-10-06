@@ -78,6 +78,20 @@ export function mapEntity(
     if (features & 8) capabilities.push('stop');
     if (features & 4 && finite(a.current_position)) capabilities.push('position');
   }
+  const strings = (value: unknown) => Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+  const options = strings(a.options);
+  const hvacModes = strings(a.hvac_modes);
+  const sources = strings(a.source_list);
+  if (kind === 'number' && finite(a.min) && finite(a.max) && a.max > a.min && Number.isFinite(Number(state))) capabilities.push('number');
+  if (kind === 'select' && options.length) capabilities.push('select');
+  if (kind === 'climate' && hvacModes.length) capabilities.push('hvac_mode');
+  if (kind === 'light' && modes.includes('color_temp') && finite(a.min_color_temp_kelvin) && finite(a.max_color_temp_kelvin)) capabilities.push('color_temperature');
+  if (kind === 'media') {
+    if (features & 32) capabilities.push('next');
+    if (features & 16) capabilities.push('previous');
+    if (features & 8) capabilities.push('mute');
+    if (features & 2048 && sources.length) capabilities.push('source');
+  }
   const raw = attribute ? a[attribute] : state;
   const rendered =
     attribute && entity && hass?.formatEntityAttributeValue
@@ -105,6 +119,14 @@ export function mapEntity(
       'fan_only',
     ].includes(state),
     capabilities,
+    number: Number.isFinite(Number(state)) ? Number(state) : undefined,
+    minNumber: finite(a.min) ? a.min : undefined,
+    maxNumber: finite(a.max) ? a.max : undefined,
+    stepNumber: finite(a.step) && a.step > 0 ? a.step : 1,
+    options, hvacModes, sources, source: text(a.source), muted: a.is_volume_muted === true,
+    color_temperature: finite(a.color_temp_kelvin) ? a.color_temp_kelvin : undefined,
+    minKelvin: finite(a.min_color_temp_kelvin) ? a.min_color_temp_kelvin : undefined,
+    maxKelvin: finite(a.max_color_temp_kelvin) ? a.max_color_temp_kelvin : undefined,
     brightness: finite(a.brightness) ? Math.round((clamp(a.brightness, 255) / 255) * 100) : 0,
     volume: finite(a.volume_level) ? Math.round(clamp(a.volume_level, 1) * 100) : 0,
     temperature: finite(a.temperature) ? a.temperature : undefined,
@@ -130,31 +152,32 @@ export function mapEntity(
           : undefined,
   };
 }
+// Registry objects are replaced by HA on registry changes. State updates reuse them.
+// Weak keys let disconnected hosts and old registries be collected.
+const roomIndexes = new WeakMap<NonNullable<Hass['entities']>, WeakMap<object, Map<string, string[]>>>();
+const noDevices = {};
 export function roomEntityIds(hass: Hass, area: string | undefined, explicit?: string[]): string[] {
   if (explicit) return [...new Set(explicit)];
-  if (!area) return [];
-  return Object.entries(hass.entities ?? {})
-    .filter(([id, e]) => {
-      const domain = id.split('.')[0];
-      return (
-        [
-          'light',
-          'switch',
-          'input_boolean',
-          'sensor',
-          'binary_sensor',
-          'climate',
-          'media_player',
-          'cover',
-        ].includes(domain) &&
-        !e.hidden_by &&
-        !e.disabled_by &&
-        !e.entity_category &&
-        (e.area_id ?? (e.device_id ? hass.devices?.[e.device_id]?.area_id : null)) === area
-      );
-    })
-    .map(([id]) => id)
-    .sort();
+  if (!area || !hass.entities) return [];
+  let byDevices = roomIndexes.get(hass.entities);
+  if (!byDevices) roomIndexes.set(hass.entities, byDevices = new WeakMap());
+  const devices = hass.devices ?? noDevices;
+  let index = byDevices.get(devices);
+  if (!index) {
+    index = new Map();
+    for (const [id, e] of Object.entries(hass.entities)) {
+      if (!['light', 'switch', 'input_boolean', 'sensor', 'binary_sensor', 'climate', 'media_player', 'cover', 'number', 'input_number', 'select', 'input_select'].includes(id.split('.')[0]) || e.hidden_by || e.disabled_by || e.entity_category) continue;
+      const owner = e.area_id ?? (e.device_id ? hass.devices?.[e.device_id]?.area_id : null);
+      if (!owner) continue;
+      const members = index.get(owner) ?? [];
+      members.push(id);
+      index.set(owner, members);
+    }
+    for (const members of index.values()) members.sort();
+    byDevices.set(devices, index);
+  }
+  // Do not expose mutable cached arrays to consumers.
+  return [...(index.get(area) ?? [])];
 }
 export function kindForEntity(id: string): CardKind {
   return (
@@ -166,6 +189,7 @@ export function kindForEntity(id: string): CardKind {
         media_player: 'media',
         climate: 'climate',
         cover: 'cover',
+        number: 'number', input_number: 'number', select: 'select', input_select: 'select',
       } as Record<string, CardKind>
     )[id.split('.')[0]] ?? 'sensor'
   );
@@ -208,6 +232,32 @@ export async function executeCommand(
   let service: string;
   let data: Record<string, unknown> = {};
   switch (command.type) {
+    case 'number':
+    case 'color_temperature': {
+      if (!entity.capabilities.includes(command.type)) throw new Error('This control is not supported.');
+      const min = command.type === 'number' ? entity.minNumber! : entity.minKelvin!;
+      const max = command.type === 'number' ? entity.maxNumber! : entity.maxKelvin!;
+      if (!Number.isFinite(command.value) || command.value < min || command.value > max) throw new Error('Value is outside the supported range.');
+      service = command.type === 'number' ? 'set_value' : 'turn_on';
+      data = command.type === 'number' ? { value: command.value } : { color_temp_kelvin: command.value };
+      break;
+    }
+    case 'select':
+    case 'hvac_mode':
+    case 'source': {
+      const options = command.type === 'select' ? entity.options : command.type === 'hvac_mode' ? entity.hvacModes : entity.sources;
+      if (!entity.capabilities.includes(command.type) || !options?.includes(command.value)) throw new Error('Option is not supported.');
+      service = command.type === 'select' ? 'select_option' : command.type === 'hvac_mode' ? 'set_hvac_mode' : 'select_source';
+      data = { [command.type === 'select' ? 'option' : command.type === 'hvac_mode' ? 'hvac_mode' : 'source']: command.value };
+      break;
+    }
+    case 'next':
+    case 'previous':
+    case 'mute':
+      if (!entity.capabilities.includes(command.type)) throw new Error('This control is not supported.');
+      service = command.type === 'next' ? 'media_next_track' : command.type === 'previous' ? 'media_previous_track' : 'volume_mute';
+      if (command.type === 'mute') data = { is_volume_muted: !entity.muted };
+      break;
     case 'toggle':
       if (!entity.capabilities.includes('toggle')) throw new Error('Toggle is not supported.');
       service = entity.active ? 'turn_off' : 'turn_on';
@@ -255,4 +305,19 @@ export async function executeCommand(
       service = `${command.type}_cover`;
   }
   await callHostService(hass, domain, service, data, target);
+}
+
+/** Ask the host to load its own editor components; the standalone preview keeps its fallback. */
+export async function prepareHostEditor(): Promise<void> {
+  if (customElements.get('ha-form')) return;
+  const host = window as Window & { loadCardHelpers?: () => Promise<{ createCardElement(config: Record<string, unknown>): HTMLElement }> };
+  if (!host.loadCardHelpers) return;
+  try {
+    const helpers = await host.loadCardHelpers();
+    const tile = helpers.createCardElement({ type: 'tile', entity: 'sensor.navet_editor' });
+    const constructor = tile.constructor as typeof HTMLElement & { getConfigElement?: () => HTMLElement | Promise<HTMLElement> };
+    await constructor.getConfigElement?.();
+  } catch {
+    // Custom cards must remain editable when host UI components cannot be loaded.
+  }
 }

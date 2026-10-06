@@ -19,7 +19,7 @@
 </head>
 <body><main>
   <header><div><h1>Navet Cards</h1><p>Independent cards for your Home Assistant dashboard.</p></div><div class="toolbar"><button id="theme">Light theme</button><button id="unavailable">Unavailable state</button><button id="fail">Fail next action</button></div></header>
-  <p><a href="./composition.html" style="color:inherit">Try room controls and composition</a></p><h2>Kitchen</h2><div class="grid" id="cards"></div>
+  <h2>Room controls and composition</h2><div class="grid" id="cards"></div>
   <p>This preview uses simulated Home Assistant state. It does not control your home.</p>
   <p id="events" role="status">Try a control, then open the room.</p>
   <details id="editor-panel"><summary>Edit the kitchen light</summary><navet-card-editor id="editor"></navet-card-editor></details>
@@ -32,12 +32,14 @@
   if(!customElements.get('ha-icon')) customElements.define('ha-icon',DemoIcon);
   const state=(id,value,attributes)=>({ entity_id:id,state:value,attributes });
   const states={
-    'light.kitchen':state('light.kitchen','on',{ friendly_name:'Kitchen lights',brightness:166,supported_color_modes:['brightness'] }),
+    'light.kitchen':state('light.kitchen','on',{ friendly_name:'Kitchen lights',brightness:166,supported_color_modes:['color_temp'],color_temp_kelvin:3000,min_color_temp_kelvin:2000,max_color_temp_kelvin:6500 }),
     'switch.coffee':state('switch.coffee','off',{ friendly_name:'Coffee machine' }),
     'sensor.temperature':state('sensor.temperature','21.4',{ friendly_name:'Kitchen temperature',unit_of_measurement:'°C' }),
-    'media_player.kitchen':state('media_player.kitchen','playing',{ friendly_name:'Kitchen speaker',media_title:'Morning radio',supported_features:16389,volume_level:.35 }),
-    'climate.kitchen':state('climate.kitchen','heat',{ friendly_name:'Kitchen heating',supported_features:1,temperature:22,current_temperature:21.4,min_temp:7,max_temp:30,target_temp_step:.5 }),
+    'media_player.kitchen':state('media_player.kitchen','playing',{ friendly_name:'Kitchen speaker',media_title:'Morning radio',supported_features:18493,volume_level:.35,source:'Radio',source_list:['Radio','TV'],is_volume_muted:false }),
+    'climate.kitchen':state('climate.kitchen','heat',{ friendly_name:'Kitchen heating',supported_features:1,temperature:22,current_temperature:21.4,min_temp:7,max_temp:30,target_temp_step:.5,hvac_modes:['off','heat','cool'] }),
     'cover.kitchen':state('cover.kitchen','open',{ friendly_name:'Kitchen blinds',supported_features:15,current_position:75 }),
+    'input_number.offset':state('input_number.offset','-2',{friendly_name:'Heating offset',min:-10,max:10,step:.5,unit_of_measurement:'°C'}),
+    'input_select.mode':state('input_select.mode','Eco',{friendly_name:'House mode',options:['Eco','Comfort','Away']}),
     'sensor.missing':undefined,
   };
   let fail=false;
@@ -56,6 +58,7 @@
       if(service==='media_pause') value='paused'; if(service==='media_play') value='playing';
       if(data.volume_level!==undefined) attributes.volume_level=data.volume_level;
       if(data.temperature!==undefined) attributes.temperature=data.temperature;
+      if(data.value!==undefined) value=String(data.value);if(data.option!==undefined)value=data.option;if(data.hvac_mode!==undefined)value=data.hvac_mode;if(data.source!==undefined)attributes.source=data.source;if(data.is_volume_muted!==undefined)attributes.is_volume_muted=data.is_volume_muted;if(data.color_temp_kelvin!==undefined)attributes.color_temp_kelvin=data.color_temp_kelvin;
       if(service==='open_cover') {value='open';attributes.current_position=100;} if(service==='close_cover') {value='closed';attributes.current_position=0;}
       if(data.position!==undefined) {attributes.current_position=data.position;value=data.position===0?'closed':'open';}
       window.demoHass={...window.demoHass,states:{...window.demoHass.states,[id]:{...old,state:value,attributes}}}; window.syncCards();
@@ -63,13 +66,16 @@
     }
   };
   window.configs=[
-    {type:'custom:navet-light-card',entity:'light.kitchen',tap_action:{action:'toggle'},hold_action:{action:'more-info'}},
+    {type:'custom:navet-light-card',entity:'light.kitchen',layout:'row',sub_controls:[{entity:'switch.coffee',name:'Coffee',control:'toggle'}],tap_action:{action:'toggle'},hold_action:{action:'more-info'}},
     {type:'custom:navet-switch-card',entity:'switch.coffee'},
     {type:'custom:navet-sensor-card',entity:'sensor.temperature'},
-    {type:'custom:navet-room-card',area:'kitchen'},
+    {type:'custom:navet-room-card',area:'kitchen',panel_id:'#kitchen'},
     {type:'custom:navet-media-card',entity:'media_player.kitchen'},
-    {type:'custom:navet-climate-card',entity:'climate.kitchen'},
+    {type:'custom:navet-climate-card',entity:'climate.kitchen',layout:'comfortable'},
     {type:'custom:navet-cover-card',entity:'cover.kitchen'},
+    {type:'custom:navet-number-card',entity:'input_number.offset'},
+    {type:'custom:navet-select-card',entity:'input_select.mode'},
+    {type:'custom:navet-navigation-card',links:[{name:'Kitchen',path:'#kitchen'},{name:'Overview',path:'/demo/index.html'}]},
   ];
   window.cards=window.configs.map(config=>{const card=document.createElement(config.type.replace('custom:',''));card.setConfig(config);document.querySelector('#cards').append(card);return card;});
   window.syncCards=()=>{window.cards.forEach(card=>card.hass=window.demoHass);document.querySelector('#editor').hass=window.demoHass;}; window.syncCards();

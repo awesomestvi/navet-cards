@@ -37,8 +37,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
-      - name: Publish immutable prerelease asset
+      - run: node scripts/package-verification.mjs
+      - name: Publish immutable prerelease assets
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
-        run: gh release create "$RELEASE_TAG" dist/navet-cards.js --verify-tag --prerelease --generate-notes
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          gh release create "$RELEASE_TAG" dist/navet-cards.js "dist/navet-cards-$VERSION.zip" "dist/verification-$VERSION/SHA256SUMS" "dist/verification-$VERSION/build.json" --verify-tag --prerelease --generate-notes

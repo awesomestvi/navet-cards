@@ -434,3 +434,119 @@ test('compact media volume popover remains usable with long track titles', async
   await expect(media.getByRole('slider', { name: 'Volume', exact: true })).not.toBeVisible();
   await expect(media.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });
+
+// Existing browser tests: Keep. Public configuration, command and lifecycle expectations are unchanged.
+test('room controls are lazy, use owning targets, and unmount after Escape', async ({page}) => {
+  const room=page.locator('navet-room-card');
+  await expect(room.locator('.room-control')).toHaveCount(0);
+  await room.getByRole('button',{name:'Controls',exact:true}).click();
+  const light=room.locator('.room-control').filter({has:page.getByRole('button',{name:/Kitchen lights/})});
+  await light.getByRole('button',{name:'Off',exact:true}).click();
+  expect(await page.evaluate(()=>(window as any).calls.at(-1).target.entity_id)).toBe('light.kitchen');
+  await page.keyboard.press('Escape');
+  await expect(room.locator('.room-control')).toHaveCount(0);
+  await expect(room.getByRole('button',{name:'Controls',exact:true})).toBeFocused();
+});
+test('room navigation routes hashes, releases old panels, and cleans up on disconnect',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;w.cards[3].setConfig({...w.configs[3],panel_id:'#kitchen'});
+    const nav=document.createElement('navet-navigation-card') as any;
+    nav.setConfig({type:'custom:navet-navigation-card',links:[{name:'Kitchen',path:'#kitchen'},{name:'Home',path:'/demo/index.html'}]});nav.hass=w.demoHass;document.querySelector('#cards')!.append(nav);
+  });
+  await page.locator('navet-navigation-card').getByRole('button',{name:'Kitchen',exact:true}).click();
+  await expect(page.locator('navet-room-card').getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL(/#kitchen$/);
+  await page.keyboard.press('Escape');
+  await expect(page).not.toHaveURL(/#kitchen$/);
+  await page.evaluate(()=>{
+    const room=(window as any).cards[3];room.remove();history.pushState(null,'','#kitchen');window.dispatchEvent(new Event('location-changed'));
+  });
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+});
+test('number, select and conditional sub-controls react only to their dependencies',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;
+    w.demoHass={...w.demoHass,states:{...w.demoHass.states,
+      'input_number.offset':{entity_id:'input_number.offset',state:'-2',attributes:{friendly_name:'Offset',min:-10,max:10,step:.5}},
+      'input_select.mode':{entity_id:'input_select.mode',state:'Eco',attributes:{friendly_name:'Mode',options:['Eco','Comfort']}},
+      'binary_sensor.visible':{entity_id:'binary_sensor.visible',state:'off',attributes:{}}}};
+    for(const config of [{type:'custom:navet-number-card',entity:'input_number.offset'},{type:'custom:navet-select-card',entity:'input_select.mode'}]){
+      const card=document.createElement(config.type.replace('custom:','')) as any;card.setConfig(config);card.hass=w.demoHass;document.querySelector('#cards')!.append(card);w.cards.push(card);
+    }
+    w.cards[1].setConfig({...w.configs[1],sub_controls:[{entity:'light.kitchen',name:'Ceiling',control:'toggle',visible_when:{entity:'binary_sensor.visible',state:'on'}}]});w.syncCards();
+  });
+  await expect(page.locator('navet-switch-card').locator('.sub-control')).toHaveCount(0);
+  await page.evaluate(()=>{const w=window as any;w.demoHass={...w.demoHass,states:{...w.demoHass.states,'binary_sensor.visible':{...w.demoHass.states['binary_sensor.visible'],state:'on'}}};w.syncCards();});
+  await page.locator('navet-switch-card').locator('.sub-control').getByRole('button',{name:'Off',exact:true}).click();
+  await page.locator('navet-number-card').getByRole('slider').press('ArrowRight');
+  await page.locator('navet-select-card').getByRole('combobox').selectOption('Comfort');
+  expect(await page.evaluate(()=>(window as any).calls.slice(-3))).toMatchObject([
+    {domain:'light',service:'turn_off',target:{entity_id:'light.kitchen'}},
+    {domain:'input_number',service:'set_value',data:{value:-1.5},target:{entity_id:'input_number.offset'}},
+    {domain:'input_select',service:'select_option',data:{option:'Comfort'},target:{entity_id:'input_select.mode'}}]);
+});
+test('visible climate slider and low effects preserve controls across themes and row layout',async({page})=>{
+  await expect(page.locator('navet-climate-card').getByRole('slider')).toBeVisible();
+  expect(await page.locator('navet-climate-card').getByRole('slider').evaluate(e=>getComputedStyle(e).opacity)).toBe('1');
+  for(const theme of ['light','dark','black','glass']){
+    await page.evaluate(theme=>{const w=window as any;w.cards[0].setConfig({...w.configs[0],layout:'row',appearance:{theme,effects:'low'}});},theme);
+    await expect(page.locator('navet-light-card').getByRole('button',{name:'Kitchen lights',exact:true})).toBeVisible();
+    expect(await page.locator('navet-light-card').locator('.card').evaluate(e=>getComputedStyle(e).backdropFilter)).toBe('none');
+    if (!await page.locator('navet-light-card').locator('.advanced-controls').evaluate(e=>(e as HTMLDetailsElement).open)) await page.locator('navet-light-card').getByText('Controls',{exact:true}).click();
+    await expect(page.locator('navet-light-card').getByRole('slider')).toBeVisible();
+  }
+});
+test('dropdowns reflect non-first state and failed choices restore the current state',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;const host={...w.demoHass,states:{...w.demoHass.states,'input_select.mode':{entity_id:'input_select.mode',state:'Comfort',attributes:{options:['Eco','Comfort']}}},callService:async()=>{throw new Error('Rejected');}};
+    const card=document.createElement('navet-select-card') as any;card.setConfig({type:'custom:navet-select-card',entity:'input_select.mode'});card.hass=host;document.querySelector('#cards')!.append(card);
+  });
+  const card=page.locator('navet-select-card');await expect(card.getByRole('combobox')).toHaveValue('Comfort');
+  await card.getByRole('combobox').selectOption('Eco');await expect(card.getByRole('alert')).toHaveText('Rejected');
+  await expect(card.getByRole('combobox')).toHaveValue('Comfort');
+});
+test('room hash opens after late host assignment and preview blocks navigation',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;history.pushState(null,'','#late');const card=document.createElement('navet-room-card') as any;
+    card.setConfig({type:'custom:navet-room-card',entities:['light.kitchen'],panel_id:'#late'});document.querySelector('#cards')!.append(card);w.late=card;card.hass=w.demoHass;
+  });
+  const room=page.locator('navet-room-card').last();await expect(room.getByRole('dialog')).toBeVisible();
+  await page.evaluate(()=>(window as any).late.preview=true);await expect(room.getByRole('dialog')).not.toBeVisible();
+  await page.evaluate(()=>(window as any).late.preview=false);await expect(room.getByRole('dialog')).toBeVisible();
+});
+test('sub-control display overrides stay scoped to the primary entity',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;w.cards[2].setConfig({...w.configs[2],attribute:'battery',unit:'%',sub_controls:[{entity:'sensor.temperature',name:'Room reading'}]});
+  });
+  await expect(page.locator('navet-sensor-card').locator('.sub-control .state')).toHaveText('21.4 °C');
+});
+test('multiple cover controls stay within their own room rows',async({page})=>{
+  await page.evaluate(()=>{
+    const w=window as any;w.demoHass={...w.demoHass,states:{...w.demoHass.states,'cover.other':{...w.demoHass.states['cover.kitchen'],entity_id:'cover.other',attributes:{...w.demoHass.states['cover.kitchen'].attributes,friendly_name:'Other blinds'}}}};
+    w.cards[3].setConfig({type:'custom:navet-room-card',entities:['cover.kitchen','cover.other']});w.syncCards();
+  });
+  const room=page.locator('navet-room-card');await room.getByRole('button',{name:'Controls',exact:true}).click();
+  const bounds=await room.locator('.room-control').evaluateAll(rows=>rows.map(row=>{const a=row.getBoundingClientRect();const b=row.querySelector('input')!.getBoundingClientRect();return b.top>=a.top && b.bottom<=a.bottom && b.left>=a.left && b.right<=a.right;}));
+  expect(bounds).toEqual([true,true]);
+});
+test('legacy explicit family heights retain controls when richer capabilities are advertised',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{
+    const w=window as any;w.demoHass={...w.demoHass,states:{...w.demoHass.states,
+      'light.kitchen':{...w.demoHass.states['light.kitchen'],attributes:{...w.demoHass.states['light.kitchen'].attributes,supported_color_modes:['color_temp'],min_color_temp_kelvin:2000,max_color_temp_kelvin:6000}},
+      'climate.kitchen':{...w.demoHass.states['climate.kitchen'],attributes:{...w.demoHass.states['climate.kitchen'].attributes,hvac_modes:['off','heat']}},
+      'media_player.kitchen':{...w.demoHass.states['media_player.kitchen'],attributes:{...w.demoHass.states['media_player.kitchen'].attributes,supported_features:18493,source_list:['Radio','TV'],source:'Radio'}}}};
+    for(const [i,rows] of [[0,3],[4,4],[5,4]]){w.cards[i].setConfig({...w.configs[i],grid_options:{rows}});w.cards[i].style.height=`${rows*56+(rows-1)*8}px`;}w.syncCards();
+  });
+  for(const tag of ['navet-light-card','navet-media-card','navet-climate-card']){
+    expect(await page.locator(tag).evaluate(card=>{const a=card.getBoundingClientRect();return [...card.shadowRoot!.querySelectorAll('input,button')].filter(e=>e.checkVisibility()&&!e.closest('details:not([open])')).every(e=>{const b=e.getBoundingClientRect();return b.top>=a.top-1&&b.bottom<=a.bottom+1;});})).toBe(true);
+  }
+  await page.locator('navet-media-card').getByRole('button',{name:'Controls',exact:true}).click();
+  await page.locator('navet-media-card').getByRole('combobox',{name:'Source',exact:true}).selectOption('TV');
+  expect(await page.evaluate(()=>(window as any).calls.at(-1))).toMatchObject({service:'select_source',data:{source:'TV'},target:{entity_id:'media_player.kitchen'}});
+  for(const layout of ['compact','row']) {
+    await page.evaluate(layout=>{const w=window as any;w.cards[4].setConfig({...w.configs[4],layout,appearance:{theme:'light'}});},layout);
+    if(!await page.locator('navet-media-card').getByRole('combobox',{name:'Source',exact:true}).isVisible()) await page.locator('navet-media-card').locator('summary').click();
+    expect(await page.locator('navet-media-card').getByRole('combobox',{name:'Source',exact:true}).evaluate(e=>({text:getComputedStyle(e).color,surface:getComputedStyle(e).backgroundColor}))).toEqual({text:'rgb(238, 238, 238)',surface:'rgb(37, 37, 41)'});
+  }
+});

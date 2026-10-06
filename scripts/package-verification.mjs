@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, cp } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
@@ -15,6 +15,7 @@ for (const [source, target] of [
   ['README.md', 'README.md'], ['LICENSE', 'LICENSE'], ['hacs.json', 'hacs.json'],
   ...['human-verification', 'verification-status', 'release-notes', 'release-checklist', 'implementation'].map((name) => [`docs/${name}.md`, `docs/${name}.md`]),
 ]) await copyFile(source, `${output}/${target}`);
+await cp('docs/images', `${output}/docs/images`, { recursive: true });
 const hash = createHash('sha256').update(resource).digest('hex');
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const dirty = !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();

@@ -262,3 +262,52 @@ test('presentation models normalize media metadata and reject executable artwork
   assert.equal(climate.currentTemperature, 21);
   assert.equal(climate.climateAction, 'cooling');
 });
+
+// Existing contracts: Keep. Add coverage for cache invalidation and new public controls.
+test('room index reuses a registry across rooms and invalidates entity and device changes', () => {
+  let scans = 0;
+  const entities = new Proxy({ 'light.a': { device_id: 'a' }, 'sensor.b': { area_id: 'hall' } }, {
+    ownKeys(target) { scans++; return Reflect.ownKeys(target); },
+  });
+  const h = hass(); h.entities = entities; h.devices = { a: { area_id: 'kitchen' } };
+  assert.deepEqual(roomEntityIds(h,'kitchen'),['light.a']);
+  for (let i=0;i<100;i++) roomEntityIds({...h,states:{}},'hall');
+  assert.equal(scans,1);
+  const members = roomEntityIds(h,'kitchen'); members.push('sensor.poison');
+  assert.deepEqual(roomEntityIds(h,'kitchen'),['light.a']);
+  h.devices = { a: { area_id: 'hall' } };
+  assert.deepEqual(roomEntityIds(h,'kitchen'),[]);
+  assert.deepEqual(roomEntityIds(h,'hall'),['light.a','sensor.b']);
+  h.entities = { ...entities, 'light.a': { area_id:'hall', hidden_by:'user' } };
+  assert.deepEqual(roomEntityIds(h,'hall'),['sensor.b']);
+});
+test('composition validates local routing, bounded controls and conditions without mutating config', () => {
+  const config = {...switchConfig,layout:'row',sub_controls:[{entity:'sensor.a',visible_when:{entity:'binary_sensor.b',state:'on'}}],appearance:{effects:'low',preset:'cool'}};
+  assert.deepEqual(validateConfig(config,'switch'),config);
+  assert.equal(validateConfig({type:'custom:navet-navigation-card',links:[{name:'Kitchen',path:'#kitchen'}]},'navigation').links?.[0].path,'#kitchen');
+  for (const path of ['//evil.test','/\\evil.test','javascript:alert(1)','#']) assert.throws(()=>validateConfig({type:'custom:navet-navigation-card',links:[{name:'Bad',path}]},'navigation'));
+  assert.throws(()=>validateConfig({...switchConfig,sub_controls:[{entity:'sensor.a',visible_when:{entity:'bad',state:'on'}}]},'switch'));
+});
+test('number and select controls use native owning domains, ranges and advertised options', async () => {
+  const calls: unknown[][]=[];const h=hass();h.callService=async(...args)=>{calls.push(args);};
+  const number=mapEntity({entity_id:'input_number.target',state:'-2',attributes:{min:-10,max:10,step:.5,unit_of_measurement:'°C'}},'number','input_number.target');
+  await executeCommand(h,number,{type:'number',value:-1.5});
+  await assert.rejects(executeCommand(h,number,{type:'number',value:11}),/range/);
+  const select=mapEntity({entity_id:'select.mode',state:'Eco',attributes:{options:['Eco','Comfort']}},'select','select.mode');
+  await executeCommand(h,select,{type:'select',value:'Comfort'});
+  await assert.rejects(executeCommand(h,select,{type:'select',value:'Unsafe'}),/supported/);
+  assert.deepEqual(calls,[['input_number','set_value',{value:-1.5},{entity_id:'input_number.target'}],['select','select_option',{option:'Comfort'},{entity_id:'select.mode'}]]);
+});
+test('new media, heating mode and light temperature controls require capability and valid options', async () => {
+  const calls: unknown[][]=[];const h=hass();h.callService=async(...args)=>{calls.push(args);};
+  const media=mapEntity({entity_id:'media_player.a',state:'playing',attributes:{supported_features:2072,source_list:['Radio','TV'],source:'Radio',is_volume_muted:false}},'media','media_player.a');
+  await executeCommand(h,media,{type:'previous'});await executeCommand(h,media,{type:'mute'});await executeCommand(h,media,{type:'source',value:'TV'});
+  await assert.rejects(executeCommand(h,media,{type:'next'}),/supported/);
+  const climate=mapEntity({entity_id:'climate.a',state:'heat',attributes:{hvac_modes:['off','heat']}},'climate','climate.a');
+  await executeCommand(h,climate,{type:'hvac_mode',value:'off'});
+  await assert.rejects(executeCommand(h,climate,{type:'hvac_mode',value:'cool'}),/supported/);
+  const light=mapEntity({entity_id:'light.a',state:'on',attributes:{supported_color_modes:['color_temp'],min_color_temp_kelvin:2000,max_color_temp_kelvin:6000}},'light','light.a');
+  await executeCommand(h,light,{type:'color_temperature',value:3000});
+  await assert.rejects(executeCommand(h,light,{type:'color_temperature',value:1000}),/range/);
+  assert.deepEqual(calls.map(c=>c.slice(0,3)),[['media_player','media_previous_track',{}],['media_player','volume_mute',{is_volume_muted:true}],['media_player','select_source',{source:'TV'}],['climate','set_hvac_mode',{hvac_mode:'off'}],['light','turn_on',{color_temp_kelvin:3000}]]);
+});

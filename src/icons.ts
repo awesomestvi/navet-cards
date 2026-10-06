@@ -2,6 +2,12 @@ import { svg } from 'lit';
 
 // Small stroke icons follow Navet's card controls without a runtime icon dependency.
 const paths: Record<string, string> = {
+  number: 'M5 8h14 M5 16h14 M10 3 8 21 M16 3 14 21',
+  select: 'm6 9 6 6 6-6',
+  navigation: 'M3 12 12 3l9 9 M5 10v11h14V10',
+  next: 'm5 4 10 8-10 8Z M19 4v16',
+  previous: 'm19 4-10 8 10 8Z M5 4v16',
+  mute: 'M3 9h4l5-5v16l-5-5H3Z M16 9l6 6 M22 9l-6 6',
   light: 'M13 2 4 14h7l-1 8 10-12h-7l1-8Z',
   switch: 'M12 2v10 M5.6 5.6a9 9 0 1 0 12.8 0',
   sensor: 'M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0 M12 9v9',
