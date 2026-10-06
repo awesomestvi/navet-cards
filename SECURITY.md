@@ -2,7 +2,7 @@
 
 ## Report a vulnerability
 
-Report vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/awesomestvi/navet-cards/security/advisories/new) or email `security@navet.app`.
+Report vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/navet-app/navet-cards/security/advisories/new) or email `security@navet.app`.
 
 Include the affected card and Home Assistant versions, reproduction steps, likely impact, and any suggested fix. Keep exploit details and credentials out of public issues while maintainers investigate.
 

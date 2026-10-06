@@ -5,7 +5,7 @@
   "description": "Configurable Navet cards for Home Assistant dashboards",
   "license": "AGPL-3.0-only",
   "type": "module",
-  "repository": "github:awesomestvi/navet-cards",
+  "repository": "github:navet-app/navet-cards",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",

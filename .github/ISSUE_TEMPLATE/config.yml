@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Setup help and dashboard ideas
-    url: https://github.com/awesomestvi/navet-cards/discussions
+    url: https://github.com/navet-app/navet-cards/discussions
     about: Ask installation and configuration questions or share your dashboard.
   - name: Private security report
-    url: https://github.com/awesomestvi/navet-cards/security/advisories/new
+    url: https://github.com/navet-app/navet-cards/security/advisories/new
     about: Report a vulnerability privately.
