@@ -35,7 +35,7 @@ for (const kind of KINDS) {
       name: `Navet ${kind[0].toUpperCase() + kind.slice(1)}`,
       preview: true,
       description: `Configurable ${kind} controls with Navet's compact card design.`,
-      documentationURL: 'https://github.com/awesomestvi/navet-cards#configuration',
+      documentationURL: 'https://github.com/navet-app/navet-cards#configuration',
       getEntitySuggestion: (_hass, id) =>
         domainAllowed(kind, id) ? { config: { type: `custom:${tag}`, entity: id } } : null,
     });

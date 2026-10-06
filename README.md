@@ -2,7 +2,7 @@
 
 **Everyday home controls, right in your Home Assistant dashboard.**
 
-[![Validate cards](https://github.com/awesomestvi/navet-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/awesomestvi/navet-cards/actions/workflows/ci.yml)
+[![Validate cards](https://github.com/navet-app/navet-cards/actions/workflows/ci.yml/badge.svg)](https://github.com/navet-app/navet-cards/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 Turn on the kitchen lights, check the temperature, adjust the heating, or pause the music from compact cards with warm state accents. Add them to the Home Assistant dashboard you already use and configure each card through the visual editor or YAML.
@@ -13,13 +13,13 @@ Navet Cards includes **light, switch, sensor, room, media, climate, and cover** 
 
 *Preview with simulated devices. Home Assistant owns your dashboard layout and device state.*
 
-[Install the beta](#install-the-beta) · [Configure a card](#configuration) · [Ask for help](https://github.com/awesomestvi/navet-cards/discussions) · [Report a bug](https://github.com/awesomestvi/navet-cards/issues/new/choose)
+[Install the beta](#install-the-beta) · [Configure a card](#configuration) · [Ask for help](https://github.com/navet-app/navet-cards/discussions) · [Report a bug](https://github.com/navet-app/navet-cards/issues/new/choose)
 
 ## Before you install
 
 Navet Cards is an early beta for **Home Assistant 2024.6.4 or newer**. It runs inside Home Assistant's dashboard (also called Lovelace), using your existing login and device connections. Build it with Node.js 22 or newer; Node.js is only needed on the computer building the resource.
 
-This collection is a companion to [Navet](https://github.com/awesomestvi/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. The collection focuses on device controls; room dialogs open Home Assistant's entity details, and advanced controls such as light color are available there.
+This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. The collection focuses on device controls; room dialogs open Home Assistant's entity details, and advanced controls such as light color are available there.
 
 Automated checks cover a simulated browser host and isolated Home Assistant 2024.6.4 and 2026.9.4 instances with demo entities. Household devices, companion apps, and HACS installation still need acceptance testing. Read the [verification status](docs/verification-status.md) for the evidence and remaining checks.
 
@@ -40,7 +40,7 @@ Open [the local preview](http://127.0.0.1:4178/demo/). The preview uses simulate
 1. Clone this repository and build the resource:
 
    ```sh
-   git clone https://github.com/awesomestvi/navet-cards.git
+   git clone https://github.com/navet-app/navet-cards.git
    cd navet-cards
    npm ci
    npm run build
@@ -68,7 +68,7 @@ Run `npm run package:verification` to produce a verification folder and ZIP unde
 
 Use the manual installation above for this beta. HACS needs a downloadable `navet-cards.js` in the repository or a GitHub release; this repository builds the file locally and has no published release asset yet.
 
-The [HACS Dashboard manifest](hacs.json) and prerelease workflow are included. When a tested release asset is available, add `https://github.com/awesomestvi/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Clean installation and upgrade must be verified before recommending this route. Default HACS catalog inclusion is a separate submission.
+The [HACS Dashboard manifest](hacs.json) and prerelease workflow are included. When a tested release asset is available, add `https://github.com/navet-app/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Clean installation and upgrade must be verified before recommending this route. Default HACS catalog inclusion is a separate submission.
 
 ## Configuration
 
@@ -210,7 +210,7 @@ This is an independent repository with a scoped normalization implementation inf
 
 ## Help and contributions
 
-Ask setup questions and share dashboard ideas in [Discussions](https://github.com/awesomestvi/navet-cards/discussions). Use [Issues](https://github.com/awesomestvi/navet-cards/issues/new/choose) for reproducible bugs, device compatibility reports, and feature requests. Include the card version, Home Assistant version, and a minimal card configuration.
+Ask setup questions and share dashboard ideas in [Discussions](https://github.com/navet-app/navet-cards/discussions). Use [Issues](https://github.com/navet-app/navet-cards/issues/new/choose) for reproducible bugs, device compatibility reports, and feature requests. Include the card version, Home Assistant version, and a minimal card configuration.
 
 See [Contributing](CONTRIBUTING.md) for development and pull requests, the [Code of Conduct](CODE_OF_CONDUCT.md) for community participation, and the [Security policy](SECURITY.md) for private vulnerability reports.
 

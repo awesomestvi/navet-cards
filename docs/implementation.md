@@ -41,4 +41,4 @@ Household devices, coexistence with Bubble Card, companion-app WebViews, and pub
 - [Home Assistant dashboard actions](https://www.home-assistant.io/dashboards/actions/)
 - [HACS Dashboard repository requirements](https://www.hacs.xyz/docs/publish/plugin/)
 - [Bubble Card implementation](https://github.com/Clooos/Bubble-Card/blob/main/src/bubble-card.js)
-- [Navet](https://github.com/awesomestvi/navet), source audited at `2c3ad628`.
+- [Navet](https://github.com/navet-app/navet), source audited at `2c3ad628`.

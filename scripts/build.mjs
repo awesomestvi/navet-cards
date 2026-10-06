@@ -13,7 +13,7 @@ await build({
   legalComments: 'eof',
   define: { __VERSION__: JSON.stringify(version) },
   banner: {
-    js: `/* Navet Cards ${version} | AGPL-3.0-only | github.com/awesomestvi/navet-cards */`,
+    js: `/* Navet Cards ${version} | AGPL-3.0-only | github.com/navet-app/navet-cards */`,
   },
 });
 const bytes = (await stat('dist/navet-cards.js')).size;
