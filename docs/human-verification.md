@@ -1,12 +1,12 @@
 # Human verification
 
-Use `dist/verification-0.1.0-beta.2/navet-cards.js` for this verification build. The folder also contains installation instructions, release notes, test status, build metadata, and `SHA256SUMS`.
+Use `dist/verification-0.1.0-beta.3/navet-cards.js` for this verification build. The folder also contains installation instructions, release notes, test status, build metadata, and `SHA256SUMS`.
 
 ## Install on your Home Assistant
 
 1. Keep a copy of your existing dashboard configuration and any previous Navet Cards resource.
 2. Copy `navet-cards.js` into `/config/www/`.
-3. Add `/local/navet-cards.js?v=0.1.0-beta.2` as a JavaScript Module in dashboard resources. If a Navet Cards resource already exists, update its URL so only one resource is registered.
+3. Add `/local/navet-cards.js?v=0.1.0-beta.3` as a JavaScript Module in dashboard resources. If a Navet Cards resource already exists, update its URL so only one resource is registered.
 4. Reload the frontend, add a Navet card through the card picker, and select a device you can safely operate.
 5. Check the flows below in desktop browsers and the Home Assistant companion app you use.
 
@@ -18,9 +18,12 @@ Verify the copy with `shasum -a 256 -c SHA256SUMS` from the verification folder.
 - Switch: on/off for a switch and an input boolean.
 - Sensor: a numeric value, zero, a binary sensor, an attribute, missing entity, and unavailable entity.
 - Room: an area and an explicit entity list; open Controls, open native Details, press Escape, and check focus returns.
-- Media: playback and volume on devices with different supported controls.
-- Climate: a target temperature in your installation's units, allowed limits, and a device without a single target temperature.
-- Cover: open, stop, close, and position where supported.
+- Media: playback, volume, mute, skip and sources on devices with different supported controls.
+- Climate: heating mode and a visible target temperature in your installation's units, allowed limits, and a device without a single target temperature.
+- Cover: open, stop, close, and position where supported; multiple covers in a room panel.
+- Number/select: native bounds and step, non-first option, rejected command and unavailable state.
+- Composition: row disclosures, conditional sub-controls, navigation hashes, browser Back, preview mode and late/reconnecting host.
+- Performance: 30–60 visible controls and 10–20 rooms on a named low-power device; compare opaque and glass effects, scrolling and repeated panel cycles. Record client model/browser, P95 local feedback/panel latency, long tasks and retained objects.
 - Editing: change appearance/actions, save, close, reopen, save again, and reload. Confirm advanced YAML fields stay intact.
 - Layout: Sections and Masonry, long titles, your smallest phone/tablet, dark/light themes, and mixed built-in/custom cards.
 - Input: keyboard focus, tap, hold, double tap, scrolling across sliders, reduced motion, and dialogs in the companion app.

@@ -1,6 +1,6 @@
 import type { CardKind } from './core';
 
-export const KINDS: CardKind[] = ['light', 'switch', 'sensor', 'room', 'media', 'climate', 'cover'];
+export const KINDS: CardKind[] = ['light', 'switch', 'sensor', 'room', 'media', 'climate', 'cover', 'number', 'select', 'navigation'];
 export const tagFor = (kind: CardKind) => `navet-${kind}-card`;
 export interface ActionConfig {
   action: 'none' | 'toggle' | 'more-info' | 'navigate' | 'perform-action';
@@ -10,6 +10,14 @@ export interface ActionConfig {
   data?: Record<string, unknown>;
   confirmation?: boolean | { text?: string };
 }
+export interface SubControl {
+  entity: string;
+  name?: string;
+  control?: 'state' | 'toggle' | 'slider' | 'select';
+  visible_when?: { entity: string; state: string };
+  tap_action?: ActionConfig;
+}
+export interface NavigationLink { name: string; path: string; }
 export interface CardConfig {
   type: string;
   entity?: string;
@@ -19,12 +27,17 @@ export interface CardConfig {
   icon?: string;
   attribute?: string;
   unit?: string;
-  layout?: 'compact' | 'comfortable';
+  layout?: 'compact' | 'comfortable' | 'row';
+  panel_id?: string;
+  sub_controls?: SubControl[];
+  links?: NavigationLink[];
   show_state?: boolean;
   show_brightness?: boolean;
   appearance?: {
     accent?: string;
     radius?: number;
+    effects?: 'low' | 'high';
+    preset?: 'warm' | 'neutral' | 'cool';
     theme?: 'auto' | 'light' | 'dark' | 'black' | 'glass';
   };
   tap_action?: ActionConfig;
@@ -43,7 +56,7 @@ export const domainAllowed = (kind: CardKind, entity: string) => {
       media: ['media_player'],
       climate: ['climate'],
       cover: ['cover'],
-      room: [],
+      room: [], navigation: [], number: ['number', 'input_number'], select: ['select', 'input_select'],
     } as Record<CardKind, string[]>
   )[kind].includes(domain);
 };
@@ -52,6 +65,7 @@ const object = (v: unknown): v is Record<string, unknown> =>
 function fail(message: string): never {
   throw new Error(`Navet Cards: ${message}`);
 }
+export const localPath = (v: unknown): v is string => typeof v === 'string' && (/^#[a-z0-9_-]+$/i.test(v) || (v.startsWith('/') && !v.startsWith('//') && !/[\\\r\n]/.test(v)));
 const entityId = (v: unknown): v is string =>
   typeof v === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(v);
 
@@ -67,6 +81,11 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
     )
       fail('entities must be a nonempty list of entity IDs.');
     if (!input.area && !input.entities) fail('a room needs area or entities.');
+  } else if (kind === 'navigation') {
+    if (!Array.isArray(input.links) || !input.links.length || input.links.length > 20) fail('navigation needs 1–20 links.');
+    for (const link of input.links) {
+      if (!object(link) || typeof link.name !== 'string' || !link.name.trim() || !localPath(link.path)) fail('links need a name and local path or panel hash.');
+    }
   } else if (!entityId(input.entity) || !domainAllowed(kind, input.entity)) {
     fail(`entity must reference a supported ${kind} entity.`);
   }
@@ -75,14 +94,16 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
   }
   if (input.icon !== undefined && !/^[a-z0-9_-]+:[a-z0-9_-]+$/i.test(String(input.icon)))
     fail('icon must use a namespace, such as mdi:lightbulb.');
-  if (input.layout !== undefined && !['compact', 'comfortable'].includes(String(input.layout)))
-    fail('layout must be compact or comfortable.');
+  if (input.layout !== undefined && !['compact', 'comfortable', 'row'].includes(String(input.layout)))
+    fail('layout must be compact, comfortable or row.');
   for (const key of ['show_state', 'show_brightness'])
     if (input[key] !== undefined && typeof input[key] !== 'boolean')
       fail(`${key} must be true or false.`);
   if (input.appearance !== undefined) {
     if (!object(input.appearance)) fail('appearance must be an object.');
     const a = input.appearance;
+    if (a.effects !== undefined && !['low', 'high'].includes(String(a.effects))) fail('effects must be low or high.');
+    if (a.preset !== undefined && !['warm', 'neutral', 'cool'].includes(String(a.preset))) fail('unknown appearance preset.');
     if (
       a.accent !== undefined &&
       (typeof a.accent !== 'string' || !/^#[0-9a-f]{6}$/i.test(a.accent))
@@ -112,10 +133,9 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
     if (
       action.action === 'navigate' &&
       (typeof action.navigation_path !== 'string' ||
-        !action.navigation_path.startsWith('/') ||
-        action.navigation_path.startsWith('//'))
+        !localPath(action.navigation_path))
     )
-      fail('navigation_path must be a local path beginning with /.');
+      fail('navigation_path must be a local path or panel hash.');
     if (
       action.action === 'perform-action' &&
       (typeof action.perform_action !== 'string' ||
@@ -137,6 +157,17 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
       typeof action.confirmation.text !== 'string'
     )
       fail('confirmation text must be text.');
+  }
+  if (input.panel_id !== undefined && (kind !== 'room' || typeof input.panel_id !== 'string' || !/^#[a-z0-9_-]+$/i.test(input.panel_id))) fail('panel_id must be a unique room hash, such as #kitchen.');
+  if (input.sub_controls !== undefined) {
+    if (!Array.isArray(input.sub_controls) || input.sub_controls.length > 8) fail('sub_controls must contain at most eight controls.');
+    for (const sub of input.sub_controls) {
+      if (!object(sub) || !entityId(sub.entity)) fail('sub-controls need an entity.');
+      if (sub.name !== undefined && typeof sub.name !== 'string') fail('sub-control name must be text.');
+      if (sub.control !== undefined && !['state', 'toggle', 'slider', 'select'].includes(String(sub.control))) fail('unsupported sub-control.');
+      if (sub.visible_when !== undefined && (!object(sub.visible_when) || !entityId(sub.visible_when.entity) || typeof sub.visible_when.state !== 'string')) fail('visible_when needs an entity and state.');
+      if (sub.tap_action !== undefined) validateConfig({ type: 'custom:navet-switch-card', entity: 'switch.validation', tap_action: sub.tap_action }, 'switch');
+    }
   }
   if (input.grid_options !== undefined) {
     if (!object(input.grid_options)) fail('grid_options must be an object.');

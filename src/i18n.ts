@@ -1,4 +1,7 @@
 const en = {
+  panel_id: 'Room hash', subEntity: 'Entity',
+  number: 'Number', select: 'Option', navigation: 'Rooms', selectOption: 'Choose an option',
+  hvac_mode: 'Heating mode', source: 'Source', next: 'Next track', previous: 'Previous track', mute: 'Mute', unmute: 'Unmute', color_temperature: 'Color temperature',
   light: 'Light',
   switch: 'Switch',
   sensor: 'Sensor',
@@ -49,7 +52,7 @@ const en = {
   theme: 'Theme',
   show_state: 'Show state',
   show_brightness: 'Show brightness',
-  area: 'Area ID',
+  area: 'Area',
 };
 const sv: Partial<typeof en> = {
   light: 'Ljus',

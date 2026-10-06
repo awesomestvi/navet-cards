@@ -1,6 +1,6 @@
 # Contributing to Navet Cards
 
-Use [Discussions](https://github.com/awesomestvi/navet-cards/discussions) for setup help and early ideas. Open an [issue](https://github.com/awesomestvi/navet-cards/issues/new/choose) for a reproducible bug or a focused feature request. Discuss substantial changes before implementing them.
+Use [Discussions](https://github.com/navet-app/navet-cards/discussions) for setup help and early ideas. Open an [issue](https://github.com/navet-app/navet-cards/issues/new/choose) for a reproducible bug or a focused feature request. Discuss substantial changes before implementing them.
 
 ## Develop locally
 

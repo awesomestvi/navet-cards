@@ -13,12 +13,13 @@ await build({
   legalComments: 'eof',
   define: { __VERSION__: JSON.stringify(version) },
   banner: {
-    js: `/* Navet Cards ${version} | AGPL-3.0-only | github.com/awesomestvi/navet-cards */`,
+    js: `/* Navet Cards ${version} | AGPL-3.0-only | github.com/navet-app/navet-cards */`,
   },
 });
 const bytes = (await stat('dist/navet-cards.js')).size;
 const gzip = gzipSync(await readFile('dist/navet-cards.js')).length;
-if (bytes > 160_000) throw new Error(`Bundle exceeds 160 kB budget: ${bytes}`);
+if (bytes > 100_000) throw new Error(`Bundle exceeds 100 kB budget: ${bytes}`);
+if (gzip > 35_000) throw new Error(`Bundle exceeds 35 kB gzip budget: ${gzip}`);
 console.log(
   `navet-cards.js: ${(bytes / 1000).toFixed(1)} kB (${(gzip / 1000).toFixed(1)} kB gzip)`,
 );
