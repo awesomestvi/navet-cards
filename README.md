@@ -13,11 +13,11 @@ Navet Cards includes **light, switch, sensor, room, media, climate, cover, fan, 
 
 *Preview with simulated devices. Home Assistant owns your dashboard layout and device state.*
 
-[Install the beta](#install-the-beta) · [Configure a card](#configuration) · [Ask for help](https://github.com/navet-app/navet-cards/discussions) · [Report a bug](https://github.com/navet-app/navet-cards/issues/new/choose)
+[Download and install](#install-navet-cards) · [Configure a card](#configuration) · [Ask for help](https://github.com/navet-app/navet-cards/discussions) · [Report a bug](https://github.com/navet-app/navet-cards/issues/new/choose)
 
 ## Before you install
 
-Navet Cards is an early beta for **Home Assistant 2024.6.4 or newer**. It runs inside Home Assistant's dashboard (also called Lovelace), using your existing login and device connections. Build it with Node.js 22 or newer; Node.js is only needed on the computer building the resource.
+Navet Cards is an early beta for **Home Assistant 2024.6.4 or newer**. It runs inside Home Assistant's dashboard (also called Lovelace), using your existing login and device connections. Download the compiled JavaScript resource from [GitHub Releases](https://github.com/navet-app/navet-cards/releases). Dev builds, betas, and release candidates are marked as prereleases; read the selected release notes before installing.
 
 This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. Room dialogs provide direct device controls and access to Home Assistant's entity details, where advanced controls such as light color are available. Controls follow each device's advertised capabilities.
 
@@ -25,15 +25,7 @@ Automated checks cover a simulated browser host and isolated Home Assistant 2024
 
 ## Try the cards
 
-Use Node.js 22 or newer:
-
-```sh
-npm ci
-npm run build
-npm run dev
-```
-
-Open [the local preview](http://127.0.0.1:4178/demo/) or the [composition preview](http://127.0.0.1:4178/demo/composition.html). The preview uses simulated devices, with theme switching, unavailable states, command failures, and a working card editor.
+[Download and install](#install-navet-cards) a published resource to try the cards in Home Assistant. For a local preview with simulated devices, follow the [contributor setup](CONTRIBUTING.md#develop-locally).
 
 ## Review cards in a pull request
 
@@ -62,40 +54,32 @@ python3 -m http.server 4178
 
 Open `http://localhost:4178` and choose the card catalog or room composition. The **navet-cards-verification** artifact contains the built resource, verification bundle, and browser screenshots.
 
-## Install the beta
+## Install Navet Cards
 
-1. Obtain `navet-cards.js` from a tested release or verification bundle. To build the resource from source:
-
-   ```sh
-   git clone https://github.com/navet-app/navet-cards.git
-   cd navet-cards
-   npm ci
-   npm run build
-   ```
-
-2. Copy `dist/navet-cards.js` into your Home Assistant `/config/www/` directory. If you create the `www` directory for the first time, restart Home Assistant.
+1. Open [GitHub Releases](https://github.com/navet-app/navet-cards/releases), choose a release, expand **Assets**, and download **navet-cards.js**. The versioned ZIP contains the same resource plus installation instructions, checksums, and build metadata. For early testing, choose a Dev, beta, or release candidate marked **Pre-release**.
+2. Copy the downloaded `navet-cards.js` into your Home Assistant `/config/www/` directory. If you create the `www` directory for the first time, restart Home Assistant.
 3. Open your dashboard, choose **Edit dashboard**, open its menu, and select **Manage resources**. Enable Advanced mode in your Home Assistant profile if the resource menu is hidden.
-4. Add `/local/navet-cards.js?v=0.1.0-beta.3` as a **JavaScript Module** resource. Update an existing Navet resource rather than registering a second copy.
+4. Add `/local/navet-cards.js?v=VERSION` as a **JavaScript Module** resource, replacing `VERSION` with the version shown in the release notes. Update an existing Navet resource rather than registering a second copy.
 5. Refresh the dashboard. Choose **Add card** and search for **Navet**.
 6. Select a supported entity and configure the card in the visual editor or YAML.
 
-For a YAML-managed resource list:
+For a YAML-managed resource list, replace `VERSION` with the downloaded release version:
 
 ```yaml
 resources:
-  - url: /local/navet-cards.js?v=0.1.0-beta.3
+  - url: /local/navet-cards.js?v=VERSION
     type: module
 ```
 
 When replacing the resource, change the version in its URL and reload each browser or companion-app frontend. Keep a copy of the previous resource to roll back. Existing dashboard card configurations stay in Home Assistant.
 
-Run `npm run package:verification` to produce a verification folder and ZIP under `dist/`, including the resource, checksum, instructions, and test status.
+To build a resource or verification package from source, follow the [contributor build instructions](CONTRIBUTING.md#build-an-installable-resource).
 
 ### HACS distribution
 
-Use the manual installation above for this beta. HACS needs a downloadable `navet-cards.js` in the repository or a GitHub release; this repository builds the file locally and has no published release asset yet.
+HACS is the Home Assistant Community Store. This repository includes a [Dashboard manifest](hacs.json), and GitHub Releases provide the compiled `navet-cards.js` resource. HACS clean installation and upgrades remain an [acceptance gate](docs/release-checklist.md); use the manual download above while these checks are pending.
 
-The [HACS Dashboard manifest](hacs.json) and [release workflow](docs/release-workflow.md) are included. When a tested release asset is available, add `https://github.com/navet-app/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Clean installation and upgrade must be verified before recommending this route. Default HACS catalog inclusion is a separate submission.
+For distribution testing, add `https://github.com/navet-app/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Verify installation, resource registration, upgrades, and rollback with the selected release. Default HACS catalog inclusion is a separate submission.
 
 ## Configuration
 
@@ -326,15 +310,7 @@ The cards consume `--navet-card-accent`, `--navet-card-radius`, `--navet-card-ba
 
 ## Development and validation
 
-```sh
-npm run typecheck
-npm test
-npx playwright install chromium
-npm run build
-npm run test:browser
-```
-
-`npm run check` runs all checks with Chromium installed. To use installed Chrome and a free preview port, run `NAVET_BROWSER_CHANNEL=chrome NAVET_PREVIEW_PORT=4187 npm run check`. CI runs the same checks and saves the interactive preview, generated resource, and test screenshots. The build bundles Lit and CSS into one JavaScript file, with 140 kB raw and 40 kB gzip budgets and no runtime CDN dependencies.
+See [Contributing](CONTRIBUTING.md#develop-locally) for source setup, preview, build, and validation commands. CI runs the checks and saves the interactive preview, generated resource, and test screenshots. The build bundles Lit and CSS into one JavaScript file, with 140 kB raw and 40 kB gzip budgets and no runtime CDN dependencies.
 
 The test host verifies a shared registry index, lazy room controls, a 20-room/5,000-entry update workload, 100 panel open/close cycles, state/actions, editor field preservation, instance isolation, read-only previews, hold/double-tap behavior, context cleanup, missing/unavailable entities, recoverable failures, permission messages, a 30-card dashboard, and responsive themes. For opt-in checks against an isolated real Home Assistant backend, use the [local validation setup](docs/human-verification.md#disposable-local-test-host). Use [the release checklist](docs/release-checklist.md) for household-device, companion-app, and distribution acceptance.
 
