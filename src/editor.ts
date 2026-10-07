@@ -1,7 +1,7 @@
 import { live } from 'lit/directives/live.js';
 import { LitElement, html, css, nothing } from 'lit';
 import {
-  domainAllowed,
+  domainAllowed, MULTI_KINDS, CONTENT_KINDS,
   type CardConfig,
   type ActionConfig,
   validateConfig,
@@ -102,9 +102,9 @@ export class NavetCardEditor extends LitElement {
       'more-info',
       'navigate',
       'perform-action',
-      ...(['light', 'switch'].includes(this.kind) ? ['toggle' as const] : []),
+      ...(['light', 'switch', 'fan'].includes(this.kind) ? ['toggle' as const] : []),
     ];
-    if (customElements.get('ha-form')) return html`<details><summary>${key.replaceAll('_',' ')}</summary><ha-form .hass=${this.hass} .data=${{[key]:a}} .schema=${[{name:key,selector:{ui_action:{actions:['none','more-info','navigate','perform-action',...(['light','switch'].includes(this.kind)?['toggle']:[])]}}}]} .computeLabel=${()=> 'Action'} @value-changed=${(e:CustomEvent)=>{e.stopPropagation();this.changeConfig(key,e.detail.value[key]);}}></ha-form></details>`;
+    if (customElements.get('ha-form')) return html`<details><summary>${key.replaceAll('_',' ')}</summary><ha-form .hass=${this.hass} .data=${{[key]:a}} .schema=${[{name:key,selector:{ui_action:{actions:['none','more-info','navigate','perform-action',...(['light','switch','fan'].includes(this.kind)?['toggle']:[])]}}}]} .computeLabel=${()=> 'Action'} @value-changed=${(e:CustomEvent)=>{e.stopPropagation();this.changeConfig(key,e.detail.value[key]);}}></ha-form></details>`;
     return html`<details><summary>${key.replaceAll('_', ' ')}</summary><div class="fields"><label>Action<select .value=${a?.action ?? ''} @change=${(
       e: Event,
     ) => {
@@ -121,12 +121,13 @@ export class NavetCardEditor extends LitElement {
     const c = this.config;
     if (!c) return nothing;
     return html`<form @submit=${(e: Event) => e.preventDefault()}>
-      ${this.kind === 'navigation' ? html`<div>${(c.links ?? []).map((link,i)=>html`<div class="item"><label>Name<input .value=${link.name} @change=${(e:Event)=>this.listChange('links',i,'name',(e.target as HTMLInputElement).value)}></label><label>Path or room hash<input .value=${link.path} @change=${(e:Event)=>this.listChange('links',i,'path',(e.target as HTMLInputElement).value)}></label><button type="button" @click=${()=>this.removeItem('links',i)}>Remove link</button></div>`)}<button type="button" ?disabled=${(c.links?.length ?? 0)>=20} @click=${()=>this.changeConfig('links',[...(c.links ?? []),{name:'Home',path:'/lovelace/0'}])}>Add link</button></div>` : this.kind === 'room' ? html`
+      ${MULTI_KINDS.includes(this.kind) ? html`<label>${this.t('entities')}<textarea rows="4" .value=${c.entities?.join('\n') ?? ''} @change=${(e:Event)=>this.changeConfig('entities',(e.target as HTMLTextAreaElement).value.trim().split(/\s+/).filter(Boolean))}></textarea></label><p>${this.t('entityListHelp')}</p>` : CONTENT_KINDS.includes(this.kind) ? html`${this.picker('entity',c.entity,{entity:{filter:{domain:this.entityOptions.filter(id=>domainAllowed(this.kind,id)).map(id=>id.split('.')[0]).filter((v,i,a)=>a.indexOf(v)===i)}}},value=>this.changeConfig('entity',value))}${this.kind === 'note' ? html`<label>${this.t('content')}<textarea rows="4" .value=${c.content ?? ''} @change=${(e:Event)=>this.changeConfig('content',(e.target as HTMLTextAreaElement).value)}></textarea></label><p>${this.t('noteHelp')}</p>` : this.kind === 'photo' ? html`${this.field('image',c.image)}${this.field('alt',c.alt)}` : nothing}` : this.kind === 'navigation' ? html`<div>${(c.links ?? []).map((link,i)=>html`<div class="item"><label>Name<input .value=${link.name} @change=${(e:Event)=>this.listChange('links',i,'name',(e.target as HTMLInputElement).value)}></label><label>Path or room hash<input .value=${link.path} @change=${(e:Event)=>this.listChange('links',i,'path',(e.target as HTMLInputElement).value)}></label><button type="button" @click=${()=>this.removeItem('links',i)}>Remove link</button></div>`)}<button type="button" ?disabled=${(c.links?.length ?? 0)>=20} @click=${()=>this.changeConfig('links',[...(c.links ?? []),{name:'Home',path:'/lovelace/0'}])}>Add link</button></div>` : this.kind === 'room' ? html`
         ${this.picker('area',c.area,{area:{}},value=>this.changeConfig('area',value))}
         ${customElements.get('ha-form') ? html`<ha-form .hass=${this.hass} .data=${{entities:c.entities}} .schema=${[{name:'entities',selector:{entity:{multiple:true}}}]} .computeLabel=${()=> 'Selected entities'} @value-changed=${(e:CustomEvent)=>{e.stopPropagation();this.changeConfig('entities',e.detail.value.entities?.length?e.detail.value.entities:undefined);}}></ha-form>` : html`<label>Entities (one per line)<textarea style="min-height:90px" .value=${c.entities?.join('\n') ?? ''} @change=${(e: Event) => this.changeConfig('entities', (e.target as HTMLTextAreaElement).value.trim() ? (e.target as HTMLTextAreaElement).value.trim().split(/\s+/) : undefined)}></textarea></label>`}
         ${this.field('panel_id',c.panel_id)}<p>${this.hass ? roomEntityIds(this.hass,c.area,c.entities).length : 0} entities in this room</p>` : this.picker('entity',c.entity,{entity:{filter:{domain:this.entityOptions.filter(id=>domainAllowed(this.kind,id)).map(id=>id.split('.')[0]).filter((v,i,a)=>a.indexOf(v)===i)}}},value=>this.changeConfig('entity',value))}
       <div class="pair">${this.field('name', c.name)}${this.field('icon', c.icon)}</div>
       <label>${this.t('layout')}<select .value=${c.layout ?? 'compact'} @change=${(e: Event) => this.changeConfig('layout', (e.target as HTMLSelectElement).value)}><option value="compact" .selected=${live(!c.layout || c.layout === 'compact')}>Compact</option><option value="comfortable" .selected=${live(c.layout === 'comfortable')}>Comfortable</option><option value="row" .selected=${live(c.layout === 'row')}>Row</option></select></label>
+      ${this.kind === 'switch' ? html`<label>${this.t('size')}<select .value=${c.size ?? 'small'} @change=${(e: Event) => this.changeConfig('size', (e.target as HTMLSelectElement).value)}><option value="small" .selected=${live(c.size !== 'extra-small')}>${this.t('small')}</option><option value="extra-small" .selected=${live(c.size === 'extra-small')}>${this.t('extraSmall')}</option></select></label>` : nothing}
       <label class="check"><input type="checkbox" .checked=${c.show_state !== false} @change=${(e: Event) => this.changeConfig('show_state', (e.target as HTMLInputElement).checked)} />${this.t('show_state')}</label>
       ${this.kind === 'light' ? html`<label class="check"><input type="checkbox" .checked=${c.show_brightness !== false} @change=${(e: Event) => this.changeConfig('show_brightness', (e.target as HTMLInputElement).checked)} />${this.t('show_brightness')}</label>` : nothing}
       ${this.kind === 'sensor' ? html`<div class="pair">${this.field('attribute', c.attribute)}${this.field('unit', c.unit)}</div>` : nothing}

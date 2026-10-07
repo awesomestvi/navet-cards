@@ -7,7 +7,9 @@ Provider-neutral card models and an injected HA adapter live locally. Light comm
 ## Completed development scope
 
 - Native custom-element host, picker registration, configuration validation, visual editor, and YAML preservation.
-- Light, switch, sensor, room, media, climate, cover, number, select, and navigation cards with capability-aware commands.
+- Entity cards for light, switch, sensor, room, media, climate, cover, number, select, fan, lock, vacuum, person, weather, scene, script, generic entity, and navigation.
+- Custom Info, Note, Photo, Action, Battery, UPS, Energy Now, and Media Stack cards. Grouped readings consume explicit entity lists; notes open a dialog and persist through text helpers, Photo supports galleries, and Media Stack uses the selected player’s speaker composition.
+- Daily weather forecasts and 24-hour energy history use host APIs behind normalized provider-boundary models.
 - Independent configuration/themes, state-reference update filtering, read-only previews, subscription cleanup, and injected service APIs.
 - HA more-info and navigation actions, tap/hold/double-tap handling, optional confirmation, and recoverable command errors.
 - Compact/comfortable/row composition, dark/light/black/glass appearances, CSS variables, keyboard controls, reduced motion, English and Swedish card strings.
@@ -16,7 +18,7 @@ Provider-neutral card models and an injected HA adapter live locally. Light comm
 - HA-owned visual selectors with standalone fallbacks; selector options are rebuilt for registry changes.
 - One-file resource, dependency lockfile, build budget, CI, public repository, HACS metadata, release workflow, and manual installation documentation.
 
-The editor's advanced action labels currently use English. English is the fallback for unsupported languages. Media exposes supported playback, volume, skip, mute and sources; climate exposes a single target and HVAC mode; covers expose movement and position. Light color temperature, number ranges and select options are normalized at the provider boundary. Native HA details provide other device settings.
+The editor's advanced action labels currently use English. English is the fallback for unsupported languages. Media exposes supported playback, volume, skip, mute and sources; climate exposes a target orb and HVAC mode; covers expose movement and position. Light color temperature, number ranges and select options are normalized at the provider boundary. Native HA details provide other device settings.
 
 ## Validation boundaries
 

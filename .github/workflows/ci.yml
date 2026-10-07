@@ -9,21 +9,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Validate release workflow syntax
+        run: docker run --rm --volume "$GITHUB_WORKSPACE:/repo:ro" --workdir /repo rhysd/actionlint:1.7.12 -shellcheck= -pyflakes=
+      - name: Validate this pull request's release notes
+        if: github.event_name == 'pull_request'
+        env:
+          NOTES_BASE: ${{ github.event.pull_request.base.sha }}
+          RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/release-notes.mjs check
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
+      - name: Package interactive PR preview
+        run: node scripts/package-preview.mjs
       - run: node scripts/package-verification.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: navet-cards-preview
+          name: navet-cards-verification
           path: |
             dist/
             test-results/
+      - name: Upload interactive PR preview
+        id: preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: navet-cards-preview
+          path: dist/preview/
+          if-no-files-found: error
+      - name: Link visual review in the run summary
+        env:
+          PREVIEW_ARTIFACT_URL: ${{ steps.preview.outputs.artifact-url }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Visual card review
+          [Download the interactive card preview]($PREVIEW_ARTIFACT_URL).
+          Extract it, run \`python3 -m http.server 4178\` in the extracted folder, and open http://localhost:4178.
+          The catalog includes all card families, small and extra-small examples, themes, unavailable states, and simulated action failures.
+          EOF
   live-ha:
     runs-on: ubuntu-latest
     timeout-minutes: 15

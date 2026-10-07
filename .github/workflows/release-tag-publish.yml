@@ -1,0 +1,48 @@
+name: Promote Navet Cards Release
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel (blank tags are selected automatically)
+        type: choice
+        default: beta
+        options: [beta, rc, stable]
+      preview_only:
+        description: Preview selected tags without publishing
+        type: boolean
+        default: true
+      installation_tested:
+        description: I installed and tested the selected beta/RC before stable publication
+        type: boolean
+        default: false
+      source_tag:
+        description: Optional source override (blank selects latest eligible build)
+        type: string
+      release_tag:
+        description: Optional target override (blank selects the next version)
+        type: string
+permissions:
+  actions: write
+  contents: write
+concurrency:
+  group: navet-cards-promotion
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          PREVIEW_ONLY: ${{ inputs.preview_only }}
+          INSTALLATION_TESTED: ${{ inputs.installation_tested }}
+          SOURCE_TAG: ${{ inputs.source_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: node scripts/release.mjs promote

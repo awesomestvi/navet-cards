@@ -113,7 +113,7 @@ test('editor preserves advanced configuration and changes only its card', async 
   await expect(page.locator('navet-light-card').locator('.name')).toHaveText(
     'A long kitchen light name',
   );
-  await expect(page.locator('navet-switch-card').locator('.name')).toHaveText('Coffee machine');
+  await expect(page.locator('#kitchen-switch').locator('.name')).toHaveText('Coffee machine');
 });
 
 test('room dialog supports Escape and exposes native entity details', async ({ page }) => {
@@ -212,8 +212,8 @@ test('unrelated state changes do not render existing cards and 30 instances rema
     await card.updateComplete;
   });
   expect(await page.evaluate(() => (window as any).updates)).toBe(0);
-  await expect(page.locator('#cards > *')).toHaveCount(30);
-  await expect(page.locator('navet-switch-card').last().locator('.name')).toHaveText('Switch 22');
+  await expect(page.locator('#cards > *:not(#small-example)')).toHaveCount(30);
+  await expect(page.locator('navet-switch-card:not(#small-example)').last().locator('.name')).toHaveText('Switch 22');
 });
 
 test('all supported themes and responsive widths keep contents inside each card', async ({
@@ -285,14 +285,7 @@ test('climate, media, and covers dispatch capability-aware native commands', asy
     .locator('navet-media-card')
     .getByRole('button', { name: 'Pause', exact: true })
     .click();
-  await page
-    .locator('navet-climate-card')
-    .getByRole('slider')
-    .evaluate((input: HTMLInputElement) => {
-      input.value = '22.5';
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  await page.locator('navet-climate-card').getByRole('slider').dispatchEvent('change');
+  await page.locator('navet-climate-card').getByRole('slider').press('ArrowUp');
   await page
     .locator('navet-cover-card')
     .getByRole('button', { name: 'Close', exact: true })
@@ -354,9 +347,9 @@ test('brightness presets and temperature steps work with keyboard and retain own
   await expect(light.getByRole('slider')).toHaveValue('50');
   const climate = page.locator('navet-climate-card');
   await climate.getByRole('button', { name: 'Increase temperature', exact: true }).press('Enter');
-  await expect(climate.getByRole('slider')).toHaveValue('22.5');
+  await expect(climate.getByRole('slider')).toHaveAttribute('aria-valuenow', '22.5');
   await climate.getByRole('button', { name: 'Decrease temperature', exact: true }).click();
-  await expect(climate.getByRole('slider')).toHaveValue('22');
+  await expect(climate.getByRole('slider')).toHaveAttribute('aria-valuenow', '22');
   const calls = await page.evaluate(() => (window as any).calls);
   expect(calls.map((call: any) => call.target.entity_id)).toEqual([
     'light.kitchen',
@@ -453,7 +446,7 @@ test('room navigation routes hashes, releases old panels, and cleans up on disco
     const nav=document.createElement('navet-navigation-card') as any;
     nav.setConfig({type:'custom:navet-navigation-card',links:[{name:'Kitchen',path:'#kitchen'},{name:'Home',path:'/demo/index.html'}]});nav.hass=w.demoHass;document.querySelector('#cards')!.append(nav);
   });
-  await page.locator('navet-navigation-card').getByRole('button',{name:'Kitchen',exact:true}).click();
+  await page.locator('#cards navet-navigation-card').getByRole('button',{name:'Kitchen',exact:true}).click();
   await expect(page.locator('navet-room-card').getByRole('dialog')).toBeVisible();
   await expect(page).toHaveURL(/#kitchen$/);
   await page.keyboard.press('Escape');
@@ -475,17 +468,18 @@ test('number, select and conditional sub-controls react only to their dependenci
     }
     w.cards[1].setConfig({...w.configs[1],sub_controls:[{entity:'light.kitchen',name:'Ceiling',control:'toggle',visible_when:{entity:'binary_sensor.visible',state:'on'}}]});w.syncCards();
   });
-  await expect(page.locator('navet-switch-card').locator('.sub-control')).toHaveCount(0);
+  await expect(page.locator('#kitchen-switch').locator('.sub-control')).toHaveCount(0);
   await page.evaluate(()=>{const w=window as any;w.demoHass={...w.demoHass,states:{...w.demoHass.states,'binary_sensor.visible':{...w.demoHass.states['binary_sensor.visible'],state:'on'}}};w.syncCards();});
-  await page.locator('navet-switch-card').locator('.sub-control').getByRole('button',{name:'Off',exact:true}).click();
-  await page.locator('navet-number-card').getByRole('slider').press('ArrowRight');
-  await page.locator('navet-select-card').getByRole('combobox').selectOption('Comfort');
+  await page.locator('#kitchen-switch').locator('.sub-control').getByRole('button',{name:'Off',exact:true}).click();
+  await page.locator('#cards navet-number-card').getByRole('slider').press('ArrowRight');
+  await page.locator('#cards navet-select-card').getByRole('combobox').selectOption('Comfort');
   expect(await page.evaluate(()=>(window as any).calls.slice(-3))).toMatchObject([
     {domain:'light',service:'turn_off',target:{entity_id:'light.kitchen'}},
     {domain:'input_number',service:'set_value',data:{value:-1.5},target:{entity_id:'input_number.offset'}},
     {domain:'input_select',service:'select_option',data:{option:'Comfort'},target:{entity_id:'input_select.mode'}}]);
 });
-test('visible climate slider and low effects preserve controls across themes and row layout',async({page})=>{
+// Rewrite: climate uses the accepted rotary control; command, range and visibility coverage stay.
+test('visible climate orb and low effects preserve controls across themes and row layout',async({page})=>{
   await expect(page.locator('navet-climate-card').getByRole('slider')).toBeVisible();
   expect(await page.locator('navet-climate-card').getByRole('slider').evaluate(e=>getComputedStyle(e).opacity)).toBe('1');
   for(const theme of ['light','dark','black','glass']){
@@ -501,7 +495,7 @@ test('dropdowns reflect non-first state and failed choices restore the current s
     const w=window as any;const host={...w.demoHass,states:{...w.demoHass.states,'input_select.mode':{entity_id:'input_select.mode',state:'Comfort',attributes:{options:['Eco','Comfort']}}},callService:async()=>{throw new Error('Rejected');}};
     const card=document.createElement('navet-select-card') as any;card.setConfig({type:'custom:navet-select-card',entity:'input_select.mode'});card.hass=host;document.querySelector('#cards')!.append(card);
   });
-  const card=page.locator('navet-select-card');await expect(card.getByRole('combobox')).toHaveValue('Comfort');
+  const card=page.locator('#cards navet-select-card');await expect(card.getByRole('combobox')).toHaveValue('Comfort');
   await card.getByRole('combobox').selectOption('Eco');await expect(card.getByRole('alert')).toHaveText('Rejected');
   await expect(card.getByRole('combobox')).toHaveValue('Comfort');
 });
@@ -548,5 +542,108 @@ test('legacy explicit family heights retain controls when richer capabilities ar
     await page.evaluate(layout=>{const w=window as any;w.cards[4].setConfig({...w.configs[4],layout,appearance:{theme:'light'}});},layout);
     if(!await page.locator('navet-media-card').getByRole('combobox',{name:'Source',exact:true}).isVisible()) await page.locator('navet-media-card').locator('summary').click();
     expect(await page.locator('navet-media-card').getByRole('combobox',{name:'Source',exact:true}).evaluate(e=>({text:getComputedStyle(e).color,surface:getComputedStyle(e).backgroundColor}))).toEqual({text:'rgb(238, 238, 238)',surface:'rgb(37, 37, 41)'});
+  }
+});
+
+
+test('climate orb rotates by supported steps, commits on release and cancels without commands', async ({ page }) => {
+  const climate = page.locator('navet-climate-card');
+  const orb = climate.getByRole('slider', { name: 'Target temperature' });
+  await expect(climate.locator('input[type="range"]')).toHaveCount(0);
+  const arc = await orb.evaluate(e => { const r = e.getBoundingClientRect(); return { x:r.left+24, y:r.top+r.height/2 }; });
+  await page.mouse.move(arc.x, arc.y);
+  await page.mouse.down();
+  await page.mouse.move(arc.x+8, arc.y-45, {steps:8});
+  await expect(orb).toHaveAttribute('aria-valuenow', '22.5');
+  expect(await page.evaluate(() => (window as any).calls.length)).toBe(0);
+  await page.mouse.up();
+  expect(await page.evaluate(() => (window as any).calls.at(-1))).toMatchObject({ service:'set_temperature',data:{temperature:22.5},target:{entity_id:'climate.kitchen'} });
+  await orb.press('End');
+  await expect(orb).toHaveAttribute('aria-valuenow','30');
+  await orb.press('ArrowUp');
+  expect(await page.evaluate(() => (window as any).calls.length)).toBe(2);
+  await orb.press('Home');
+  await expect(orb).toHaveAttribute('aria-valuenow','7');
+  await page.mouse.move(arc.x,arc.y);
+  await page.mouse.down();
+  await page.mouse.move(arc.x+8,arc.y-45,{steps:8});
+  await orb.dispatchEvent('pointercancel',{pointerId:1});
+  await page.mouse.up();
+  await expect(orb).toHaveAttribute('aria-valuenow','7');
+  expect(await page.evaluate(() => (window as any).calls.length)).toBe(3);
+  await page.evaluate(() => {const w=window as any;w.demoHass={...w.demoHass,states:{...w.demoHass.states,'climate.kitchen':{...w.demoHass.states['climate.kitchen'],state:'unavailable'}}};w.syncCards();});
+  await expect(orb).toHaveAttribute('aria-disabled','true');
+  await orb.dispatchEvent('keydown',{key:'ArrowUp'});
+  expect(await page.evaluate(() => (window as any).calls.length)).toBe(3);
+});
+
+test('switch sizes expose smaller Sections footprints and editor preserves size and YAML fields', async ({page}) => {
+  const dimensions = await page.evaluate(async () => {
+    const w=window as any; const card=w.cards[1];
+    const small=card.getGridOptions();
+    card.setConfig({...w.configs[1],size:'extra-small'});await card.updateComplete;
+    const extra=card.getGridOptions();
+    return {small,extra,medium:w.cards[0].getGridOptions(),mediumHeight:w.cards[0].getBoundingClientRect().height,height:card.shadowRoot.querySelector('.card').getBoundingClientRect().height};
+  });
+  expect(dimensions.medium.columns).toBe(12);
+  expect(dimensions.small.columns).toBe(6);
+  expect(dimensions.extra.columns).toBe(dimensions.small.columns);
+  expect(dimensions.extra.rows).toBe(2);
+  expect(dimensions.small.rows).toBe(dimensions.medium.rows);
+  expect(dimensions.height * 2).toBe(dimensions.mediumHeight);
+  await page.locator('#kitchen-switch').getByRole('button',{name:'Coffee machine',exact:true}).click();
+  expect(await page.evaluate(() => (window as any).calls.at(-1).target.entity_id)).toBe('switch.coffee');
+  await page.evaluate(() => {const w=window as any; const editor=document.createElement('navet-card-editor') as any;editor.id='switch-size-editor';editor.hass=w.demoHass;editor.setConfig({...w.configs[1],size:'extra-small',custom_field:{keep:true}});document.querySelector('#editor-panel')!.append(editor);editor.addEventListener('config-changed',(e:any)=>w.switchEdited=e.detail.config);});
+  await page.locator('#editor-panel > summary').click();
+  await expect(page.locator('#switch-size-editor').getByRole('combobox',{name:'Size',exact:true})).toHaveValue('extra-small');
+  await page.locator('#switch-size-editor').getByRole('combobox',{name:'Size',exact:true}).selectOption('small');
+  expect(await page.evaluate(() => (window as any).switchEdited)).toMatchObject({size:'small',custom_field:{keep:true}});
+});
+
+
+test('room member controls match the shared bottom action footprint', async ({page}) => {
+  const light = await page.locator('navet-light-card').locator('.actions button').first().boundingBox();
+  for (const member of await page.locator('navet-room-card').locator('.room-members button').all()) {
+    const bounds = await member.boundingBox();
+    expect(bounds?.width).toBe(light?.width);
+    expect(bounds?.height).toBe(light?.height);
+  }
+});
+
+test('more-options buttons stay bottom right and extra-small switches omit them', async ({page}) => {
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#cards').screenshot({path:'test-results/more-options.png'});
+  for (const width of [168,344]) for (const size of ['small','extra-small']) {
+    const placements = await page.evaluate(async ({width,size}) => {
+      const w=window as any;w.cards[1].setConfig({...w.configs[1],size});
+      for(const card of w.cards){card.style.width=`${width}px`;card.style.height=card.tagName==='NAVET-SWITCH-CARD'&&size==='extra-small'?'84px':'184px';await card.updateComplete;}
+      return w.cards.filter((card:any)=>!(card.tagName==='NAVET-SWITCH-CARD'&&size==='extra-small')).map((card:any)=>{const shell=card.shadowRoot.querySelector('.card').getBoundingClientRect();const button=card.shadowRoot.querySelector('.details,.sensor-details,.switch-details');const bounds=button.getBoundingClientRect();return {tag:card.tagName,right:shell.right-bounds.right,bottom:shell.bottom-bounds.bottom,overlap:[...card.shadowRoot.querySelectorAll('button,input')].filter((other:any)=>other!==button&&other.checkVisibility()&&!other.closest('dialog,details:not([open])')).some((other:any)=>{const rect=other.getBoundingClientRect();return Math.min(bounds.right,rect.right)>Math.max(bounds.left,rect.left)+1&&Math.min(bounds.bottom,rect.bottom)>Math.max(bounds.top,rect.top)+1;})};});
+    },{width,size});
+    for(const placement of placements){expect(placement.right,`${placement.tag} right`).toBeGreaterThanOrEqual(7);expect(placement.right).toBeLessThanOrEqual(14);expect(placement.bottom,`${placement.tag} bottom`).toBeGreaterThanOrEqual(7);expect(placement.bottom).toBeLessThanOrEqual(14);expect(placement.overlap,`${placement.tag} controls overlap`).toBe(false);}
+  }
+});
+
+
+test('preview preserves medium, small and extra-small proportions at desktop and mobile widths', async ({page}) => {
+  for (const width of [1280,390,360]) {
+    await page.setViewportSize({width,height:900});
+    const medium=await page.locator('navet-light-card').boundingBox();
+    const small=await page.locator('#kitchen-switch').boundingBox();
+    expect(medium!.width).toBeCloseTo(small!.width*2+14,0);
+    expect(small!.height).toBe(medium!.height);
+    await page.getByRole('button',{name:'Extra-small switch',exact:true}).click();
+    await expect(page.locator('#kitchen-switch').getByRole('button',{name:'Details',exact:true})).toHaveCount(0);
+    await expect(page.locator('#small-example').getByRole('button',{name:'Details',exact:true})).toBeVisible();
+    const extra=await page.locator('#kitchen-switch').boundingBox();
+    expect(extra!.width).toBe(small!.width);
+    expect(extra!.height*2).toBe(small!.height);
+    const example=await page.locator('#small-example').boundingBox();
+    expect(example!.width).toBe(extra!.width);
+    expect(example!.height).toBe(extra!.height*2);
+    const control=await page.locator('#kitchen-switch').getByRole('button',{name:'Coffee machine',exact:true}).boundingBox();
+    expect(control!.x).toBeGreaterThanOrEqual(extra!.x);
+    expect(control!.x+control!.width).toBeLessThanOrEqual(extra!.x+extra!.width);
+    if(width===1280) await page.locator('#cards').screenshot({path:'test-results/card-sizes.png'});
+    await page.getByRole('button',{name:'Small switch',exact:true}).click();
   }
 });

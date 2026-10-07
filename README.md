@@ -7,9 +7,9 @@
 
 Turn on the kitchen lights, check the temperature, adjust the heating, or pause the music from compact cards with warm state accents. Add them to the Home Assistant dashboard you already use and configure each card through the visual editor or YAML.
 
-Navet Cards includes **light, switch, sensor, room, media, climate, cover, number, select, and navigation** cards. Choose compact, comfortable, or row layouts and automatic, light, dark, black, or glass themes. Controls follow each entity's supported capabilities.
+Navet Cards includes **light, switch, sensor, room, media, climate, cover, fan, lock, vacuum, person, weather, number, select, and navigation** cards, plus grouped readings, notes, photos and actions. Choose compact, comfortable, or row layouts and automatic, light, dark, black, or glass themes. Controls follow each entity's supported capabilities.
 
-![Navet device cards, room controls and navigation in a simulated dark dashboard](docs/images/composition.png)
+![Current Navet Cards catalog with device controls, rooms, weather, grouped readings, notes and photos in a simulated dark dashboard](docs/images/dashboard.png)
 
 *Preview with simulated devices. Home Assistant owns your dashboard layout and device state.*
 
@@ -19,7 +19,7 @@ Navet Cards includes **light, switch, sensor, room, media, climate, cover, numbe
 
 Navet Cards is an early beta for **Home Assistant 2024.6.4 or newer**. It runs inside Home Assistant's dashboard (also called Lovelace), using your existing login and device connections. Build it with Node.js 22 or newer; Node.js is only needed on the computer building the resource.
 
-This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. The collection focuses on device controls; room dialogs open Home Assistant's entity details, and advanced controls such as light color are available there.
+This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. Room dialogs provide direct device controls and access to Home Assistant's entity details, where advanced controls such as light color are available. Controls follow each device's advertised capabilities.
 
 Automated checks cover a simulated browser host and isolated Home Assistant 2024.6.4 and 2026.9.4 instances with demo entities. Household devices, companion apps, and HACS installation still need acceptance testing. Read the [verification status](docs/verification-status.md) for the evidence and remaining checks.
 
@@ -34,6 +34,33 @@ npm run dev
 ```
 
 Open [the local preview](http://127.0.0.1:4178/demo/) or the [composition preview](http://127.0.0.1:4178/demo/composition.html). The preview uses simulated devices, with theme switching, unavailable states, command failures, and a working card editor.
+
+## Review cards in a pull request
+
+Use the Cloudflare Pages preview link on the PR to open the card catalog or room composition. Compare the changed cards with [Navet's live demo](https://demo.navet.app/) at the same viewport size. Check small and extra-small examples, all four themes, unavailable states, action failures, and keyboard controls. The preview uses simulated devices.
+
+### Connect PR preview hosting
+
+Connect `navet-app/navet-cards` to a Cloudflare Pages project with these settings:
+
+- Production branch: `main`.
+- Framework preset: None.
+- Build command: `npm ci && npm run build:preview`.
+- Build output directory: `dist/preview`.
+- Environment variable: `NODE_VERSION=22`.
+- Preview branch deployments: all branches, with PR comments enabled.
+
+Cloudflare's Git integration supplies the preview URL on the PR. It builds the public simulated catalog without Home Assistant credentials.
+
+### Download a preview from CI
+
+GitHub Actions also saves an interactive preview independently of hosting. Open the PR's **Validate cards** check and its run summary, then download **navet-cards-preview** from the current PR head after its checks pass. Extract it and run this command inside the extracted folder:
+
+```sh
+python3 -m http.server 4178
+```
+
+Open `http://localhost:4178` and choose the card catalog or room composition. The **navet-cards-verification** artifact contains the built resource, verification bundle, and browser screenshots.
 
 ## Install the beta
 
@@ -68,7 +95,7 @@ Run `npm run package:verification` to produce a verification folder and ZIP unde
 
 Use the manual installation above for this beta. HACS needs a downloadable `navet-cards.js` in the repository or a GitHub release; this repository builds the file locally and has no published release asset yet.
 
-The [HACS Dashboard manifest](hacs.json) and prerelease workflow are included. When a tested release asset is available, add `https://github.com/navet-app/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Clean installation and upgrade must be verified before recommending this route. Default HACS catalog inclusion is a separate submission.
+The [HACS Dashboard manifest](hacs.json) and [release workflow](docs/release-workflow.md) are included. When a tested release asset is available, add `https://github.com/navet-app/navet-cards` through HACS **Custom repositories**, with type **Dashboard**. Follow the [HACS custom-repository guide](https://www.hacs.xyz/docs/faq/custom_repositories/). Clean installation and upgrade must be verified before recommending this route. Default HACS catalog inclusion is a separate submission.
 
 ## Configuration
 
@@ -79,11 +106,74 @@ The [HACS Dashboard manifest](hacs.json) and prerelease workflow are included. W
 | `custom:navet-sensor-card` | `sensor.*`, `binary_sensor.*` | Value, unit, optional attribute |
 | `custom:navet-room-card` | HA area ID or explicit entities | Room status, lazy direct controls, and entity details |
 | `custom:navet-media-card` | `media_player.*` | Playback, volume, skip, mute, and source selection when supported |
-| `custom:navet-climate-card` | `climate.*` | Current temperature, visible target slider, steps, and heating mode when supported |
+| `custom:navet-climate-card` | `climate.*` | Current temperature, target temperature orb, steps, and heating mode when supported |
 | `custom:navet-cover-card` | `cover.*` | Open/stop/close and position when supported |
 | `custom:navet-number-card` | `number.*`, `input_number.*` | Value slider with native limits, step and unit |
 | `custom:navet-select-card` | `select.*`, `input_select.*` | Advertised options |
 | `custom:navet-navigation-card` | Local paths or room hashes | Named navigation buttons |
+| `custom:navet-fan-card` | `fan.*` | Supported on/off and speed percentage with presets |
+| `custom:navet-lock-card` | `lock.*` | State and slide to lock/unlock; code-protected locks use entity details |
+| `custom:navet-vacuum-card` | `vacuum.*` | Supported start, pause and return to dock; battery when provided |
+| `custom:navet-person-card` | `person.*`, `device_tracker.*` | Presence and entity picture |
+| `custom:navet-weather-card` | `weather.*` | Condition, prominent temperature, feels-like reading and daily forecast when supplied |
+| `custom:navet-scene-card` | `scene.*` | Run scene |
+| `custom:navet-script-card` | `script.*` | Run script |
+| `custom:navet-entity-card` | Any entity | State, unit, supported toggle, and entity details |
+| `custom:navet-info-card` | `entities` list of sensors | Live grouped readings and entity details |
+| `custom:navet-battery-card` | `entities` list of sensors | Battery readings, percentage bars and low-battery highlighting |
+| `custom:navet-ups-card` | `entities` list of sensors | Selected UPS status and metrics |
+| `custom:navet-energy-now-card` | `entities` list of sensors | Power/energy readings and a 24-hour power history chart |
+| `custom:navet-media-stack-card` | `entities` list of media players | Selected-player speaker controls and entity details |
+| `custom:navet-note-card` | `input_text.*`, `text.*`, or `content` | Save notes to a text helper or display configured text |
+| `custom:navet-photo-card` | `image.*` or `image` URL | Single photo or gallery with an image description |
+| `custom:navet-button-card` | Button, scene, script, or `tap_action` | Run an entity action, service, or local navigation |
+
+### Custom cards
+
+Custom cards appear in Home Assistant's card picker alongside the entity cards. Use `entities` for grouped readings (1–24 IDs). Put the power sensor first in Energy Now and the daily energy sensor second. Values retain their sensor units. Its chart reads the power sensor’s previous 24 hours from Home Assistant history; if history is unavailable, the card says so. Weather requests the daily forecast when the weather entity supports it. These requests use the injected Home Assistant host and refresh on state updates at most once every five minutes.
+
+Choose UPS status, battery, load and runtime sensors explicitly to match your device. Battery sensors are recognized by device class or their battery/charge name; other selected measurements appear in compact tiles. Media Stack shows one selected player using the speaker card controls. Choose another player from its selector.
+
+```yaml
+type: custom:navet-info-card
+name: Kitchen readings
+entities:
+  - sensor.kitchen_temperature
+  - sensor.kitchen_humidity
+```
+
+To edit a note from the dashboard, create a Text helper in Home Assistant and select it:
+
+```yaml
+type: custom:navet-note-card
+entity: input_text.kitchen_note
+```
+
+Select the note text to open its editor. Save writes to the helper using its native length limits; Escape closes the editor without saving. A failed save keeps your draft so you can retry. Password helpers stay private and are opened through entity details. For text configured in the dashboard, use `content: Remember to water the plants` without an entity.
+
+```yaml
+type: custom:navet-photo-card
+name: Mountains
+image: /local/mountains.jpg
+alt: Mountain lake at sunrise
+```
+
+For a gallery, use `images` with 1–24 URLs. Arrow buttons and dots select the displayed photo. Shuffle chooses another image at random when you use an arrow. The `alt` text describes the displayed image.
+
+Photo sources can be local paths or HTTP(S) URLs; an `image.*` entity supplies its entity picture. Unavailable images display a fallback. A Home Assistant image uses the host's own picture URL. External image servers must allow your browser to load the image.
+
+```yaml
+type: custom:navet-button-card
+name: Evening routine
+tap_action:
+  action: perform-action
+  perform_action: scene.turn_on
+  target:
+    entity_id: scene.evening
+```
+
+The current custom catalog includes Info, Note, Photo, Action, Battery, UPS, Energy Now, and Media Stack. RSS, Map, and Assist are planned separately. Weather displays current conditions and supported daily forecasts; Media Stack controls the selected player.
+
 
 ```yaml
 type: custom:navet-light-card
@@ -111,6 +201,7 @@ Common fields:
 | `entity` | Supported Home Assistant entity ID | Required on entity cards |
 | `name` | Card title | Entity friendly name or area name |
 | `icon` | Icon such as `mdi:lightbulb-outline` | A relevant icon for the card |
+| `size` | `small` or `extra-small` | Switch footprint; defaults to `small` |
 | `layout` | `compact`, `comfortable`, or `row` | `compact` |
 | `show_state` | Show state or sensor value | `true` |
 | `show_brightness` | Show supported brightness control | `true` on light cards |
@@ -123,7 +214,7 @@ Common fields:
 | `appearance.theme` | `auto`, `light`, `dark`, `black`, or `glass` | `auto` follows HA theme |
 | `grid_options` | Home Assistant Sections placement | Card-specific sizing |
 
-`row` presents identity and state with a **Controls** disclosure for entity actions. `compact` and `comfortable` keep family controls on the card. Climate targets use a visible slider and step buttons. Comfortable climate/light layouts expose heating mode and light color temperature; row disclosures and room panels also expose supported device controls. The media controls popover contains volume, skip, mute and sources when supported. Media progress is a read-only indication when duration is supplied. Sliders send a command when a change is committed, and support keyboard input.
+`row` presents identity and state with a **Controls** disclosure for entity actions. `compact` uses the medium Navet card height for device and room cards. Medium cards use a 2×1 footprint, small cards use 1×1, and extra-small switches use 1×0.5: the same width as small, with half its height. Home Assistant Sections uses 12 columns for medium and 6 for both switch sizes, with 3 rows for medium/small and 2 for extra-small to fit its whole-row grid; explicit `grid_options` override these defaults. Switches default to `small`; set `size: extra-small` for the shorter horizontal composition with identity and toggle controls. The settings button appears on small switches. `comfortable` adds vertical space for richer controls; both keep family controls on the card. Climate cards place the current temperature beside the gauge, with a temperature orb and step buttons. Drag the orb clockwise or counterclockwise to adjust the target; arrow keys adjust one step, and Home/End select the supported limits. Comfortable climate/light layouts expose heating mode and light color temperature; row disclosures and room panels also expose supported device controls. The media controls popover contains volume, skip, mute and sources when supported. Media progress is a read-only indication when duration is supplied. Sliders send a command when a change is committed, and support keyboard input.
 
 Home Assistant owns placement through `grid_options` on versions with Sections sizing. Use enough rows for controls and wrapped titles; `rows: auto` lets HA follow content height when disclosures expand or sub-controls are present. On Home Assistant 2024.6.4, Sections uses full-width custom cards. Cards also provide Masonry sizing.
 
@@ -243,9 +334,13 @@ npm run build
 npm run test:browser
 ```
 
-`npm run check` runs all checks with Chromium installed. To use installed Chrome and a free preview port, run `NAVET_BROWSER_CHANNEL=chrome NAVET_PREVIEW_PORT=4187 npm run check`. CI runs the same checks and saves the generated resource and test screenshots. The build bundles Lit and CSS into one JavaScript file, with 100 kB raw and 35 kB gzip budgets and no runtime CDN dependencies.
+`npm run check` runs all checks with Chromium installed. To use installed Chrome and a free preview port, run `NAVET_BROWSER_CHANNEL=chrome NAVET_PREVIEW_PORT=4187 npm run check`. CI runs the same checks and saves the interactive preview, generated resource, and test screenshots. The build bundles Lit and CSS into one JavaScript file, with 140 kB raw and 40 kB gzip budgets and no runtime CDN dependencies.
 
 The test host verifies a shared registry index, lazy room controls, a 20-room/5,000-entry update workload, 100 panel open/close cycles, state/actions, editor field preservation, instance isolation, read-only previews, hold/double-tap behavior, context cleanup, missing/unavailable entities, recoverable failures, permission messages, a 30-card dashboard, and responsive themes. For opt-in checks against an isolated real Home Assistant backend, use the [local validation setup](docs/human-verification.md#disposable-local-test-host). Use [the release checklist](docs/release-checklist.md) for household-device, companion-app, and distribution acceptance.
+
+## Releases
+
+Runtime changes merged into `main` publish Dev builds. Maintainers promote a tested Dev build to beta or a release candidate, then promote an installed and tested beta/RC to stable. Each release includes the versioned card resource, checksums and publication evidence. See [the release workflow](docs/release-workflow.md) for previewing promotions, generating release notes, recovering publication and refreshing these screenshots.
 
 ## Architecture
 

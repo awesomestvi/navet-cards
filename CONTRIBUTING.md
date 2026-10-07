@@ -20,7 +20,8 @@ Open http://127.0.0.1:4178/demo/ for the simulated dashboard. Run `npm run check
 2. Make the smallest change that addresses the issue. Preserve saved card configuration and advanced YAML fields.
 3. Update the README when configuration or user-visible behavior changes.
 4. Use Conventional Commit titles, such as `fix: preserve card appearance when editing`.
-5. Explain the outcome, link the issue, and report the checks you ran. Include phone/tablet/desktop and relevant theme screenshots for UI changes, using simulated devices.
+5. Add a `.changes/<topic>.json` [release fragment](docs/release-workflow.md#release-notes), including `internal` for changes without a user-facing outcome.
+6. Explain the outcome, link the issue, and report the checks you ran. Include phone/tablet/desktop and relevant theme screenshots for UI changes, using simulated devices.
 
 Maintainers review the current commit and CI before merging. Browser simulations do not replace household-device, companion-app, and distribution checks in the [release checklist](docs/release-checklist.md).
 

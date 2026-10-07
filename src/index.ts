@@ -1,6 +1,6 @@
 import { NavetCard } from './card';
 import { NavetCardEditor } from './editor';
-import { KINDS, tagFor, domainAllowed } from './config';
+import { KINDS, tagFor, domainAllowed, MULTI_KINDS } from './config';
 import type { Hass } from './providers/home-assistant';
 
 declare const __VERSION__: string;
@@ -37,7 +37,7 @@ for (const kind of KINDS) {
       description: `Configurable ${kind} controls with Navet's compact card design.`,
       documentationURL: 'https://github.com/navet-app/navet-cards#configuration',
       getEntitySuggestion: (_hass, id) =>
-        domainAllowed(kind, id) ? { config: { type: `custom:${tag}`, entity: id } } : null,
+        domainAllowed(kind, id) ? { config: { type: `custom:${tag}`, ...(MULTI_KINDS.includes(kind) ? {entities:[id]} : {entity:id}) } } : null,
     });
 }
 console.info(`Navet Cards ${__VERSION__}`);

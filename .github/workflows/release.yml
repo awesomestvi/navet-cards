@@ -1,47 +1,97 @@
-name: Build prerelease
+name: Publish Release
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing vVERSION-beta.N tag whose package version matches
+      release_tag:
+        description: Existing annotated tag to publish or recover
         required: true
         type: string
+      source_tag:
+        description: Tested Dev, beta or RC tag (empty only for Dev recovery)
+        type: string
+      installation_tested:
+        description: I installed and tested the selected beta/RC before stable publication
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      source_tag:
+        type: string
+        default: ''
+      installation_tested:
+        type: boolean
+        default: false
 permissions:
+  actions: read
   contents: read
+concurrency:
+  group: navet-cards-publication
+  cancel-in-progress: false
 jobs:
-  build:
+  context:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      sha: ${{ steps.context.outputs.release_sha }}
+      version: ${{ steps.context.outputs.version }}
+      environment: ${{ steps.context.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - name: Validate prerelease tag
+      - id: context
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          node --input-type=module - <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const tag = process.env.RELEASE_TAG;
-          const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
-          if (!/^v\d+\.\d+\.\d+-beta\.\d+$/.test(tag) || tag !== `v${version}`) {
-            throw new Error('Use an existing beta tag matching package.json.');
-          }
-          NODE
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_TAG: ${{ inputs.source_tag }}
+          INSTALLATION_TESTED: ${{ inputs.installation_tested }}
+        run: node scripts/release.mjs context
+  publish:
+    needs: context
+    runs-on: ubuntu-latest
+    environment: ${{ needs.context.outputs.environment }}
+    permissions:
+      actions: read
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_TAG: ${{ inputs.source_tag }}
+      INSTALLATION_TESTED: ${{ inputs.installation_tested }}
+      NAVET_CARDS_BUILD_VERSION: ${{ needs.context.outputs.version }}
+      RELEASE_SHA: ${{ needs.context.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout trusted publication tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
+          persist-credentials: false
+      - name: Keep publication tooling outside the source tree
+        run: mv .release-tools "$RUNNER_TEMP/release-tools"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
-      - run: node scripts/package-verification.mjs
-      - name: Publish immutable prerelease assets
+      - name: Generate notes from the complete release range
+        run: node "$RUNNER_TEMP/release-tools/scripts/release-notes.mjs"
+      - name: Package versioned resource
+        run: node "$RUNNER_TEMP/release-tools/scripts/package-verification.mjs"
+      - name: Publish and verify immutable assets
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          VERSION="${RELEASE_TAG#v}"
-          gh release create "$RELEASE_TAG" dist/navet-cards.js "dist/navet-cards-$VERSION.zip" "dist/verification-$VERSION/SHA256SUMS" "dist/verification-$VERSION/build.json" --verify-tag --prerelease --generate-notes
+        run: node "$RUNNER_TEMP/release-tools/scripts/release.mjs" publish
