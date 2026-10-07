@@ -2,6 +2,10 @@
 
 Navet Cards uses the same promotion stages as Navet: **Dev → beta/RC → stable**. Each release contains a versioned `navet-cards.js`, a verification archive, checksums, build metadata and `navet-cards-release-evidence.json`. GitHub Releases are the published changelog. Source tags are annotated and immutable; promotion retains the tested commit without advancing `main`.
 
+## Download a published build
+
+Open [GitHub Releases](https://github.com/navet-app/navet-cards/releases), select a release, and download `navet-cards.js` from **Assets**. The versioned ZIP includes installation instructions and verification files. Dev, beta, and RC builds are marked **Pre-release**; stable releases are marked as the latest release. Follow the [installation guide](../README.md#install-navet-cards) to register the resource in Home Assistant.
+
 ## Configure GitHub
 
 Protect `main` with required pull requests and the Cards validation checks. Configure the **edge**, **beta** and **production** environments to accept deployments from `main`. Keep publication credentials in these environments. The workflows use the repository's GitHub token; no additional token is needed. Enable Actions with read-only default permissions; the publishing jobs request their required write permissions explicitly.

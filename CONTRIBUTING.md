@@ -8,11 +8,29 @@ Use Node.js 22 or newer:
 
 ```sh
 npm ci
+npm run build
 npx playwright install chromium
 npm run dev
 ```
 
-Open http://127.0.0.1:4178/demo/ for the simulated dashboard. Run `npm run check` before submitting behavior changes; it checks types, contracts, the bundle, and Chromium interactions. See [human verification](docs/human-verification.md) for opt-in tests against a disposable Home Assistant instance.
+Open http://127.0.0.1:4178/demo/ for the simulated dashboard or http://127.0.0.1:4178/demo/composition.html for the composition preview. Rebuild after source changes and refresh the preview. Run `npm run check` before submitting behavior changes; it checks types, contracts, the bundle, and Chromium interactions. See [human verification](docs/human-verification.md) for opt-in tests against a disposable Home Assistant instance.
+
+## Build an installable resource
+
+Clone your fork or the repository and use Node.js 22 or newer:
+
+```sh
+git clone https://github.com/navet-app/navet-cards.git
+cd navet-cards
+npm ci
+npm run build
+```
+
+The build produces `dist/navet-cards.js`. Install it using the [manual installation steps](README.md#install-navet-cards).
+
+Run `npm run check` for TypeScript, contract, release, build, and browser checks. To use installed Chrome and a free preview port, run `NAVET_BROWSER_CHANNEL=chrome NAVET_PREVIEW_PORT=4187 npm run check`.
+
+Run `npm run package:verification` to run the checks and produce a verification folder and ZIP under `dist/`, including the resource, checksum, instructions, and test status. Published downloads are built by [release automation](docs/release-workflow.md).
 
 ## Submit a pull request
 
