@@ -19,7 +19,7 @@ Navet Cards includes **light, switch, sensor, room, media, climate, cover, fan, 
 
 Navet Cards is an early beta for **Home Assistant 2024.6.4 or newer**. It runs inside Home Assistant's dashboard (also called Lovelace), using your existing login and device connections. Build it with Node.js 22 or newer; Node.js is only needed on the computer building the resource.
 
-This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. Room dialogs provide direct device controls and access to Home Assistant's entity details. Controls follow each device's advertised capabilities.
+This collection is a companion to [Navet](https://github.com/navet-app/navet), the standalone smart-home dashboard. You can use Navet Cards independently in Home Assistant. Room dialogs provide direct device controls and access to Home Assistant's entity details, where advanced controls such as light color are available. Controls follow each device's advertised capabilities.
 
 Automated checks cover a simulated browser host and isolated Home Assistant 2024.6.4 and 2026.9.4 instances with demo entities. Household devices, companion apps, and HACS installation still need acceptance testing. Read the [verification status](docs/verification-status.md) for the evidence and remaining checks.
 
