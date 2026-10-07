@@ -12,10 +12,13 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:browser": "playwright test",
-    "check": "npm run typecheck && npm test && npm run build && npm run test:browser",
+    "check": "npm run typecheck && npm test && npm run test:release && npm run build && npm run test:browser",
     "ha:validation": "node scripts/ha-validation.mjs",
     "test:live": "node --import tsx --test tests/live/*.test.ts",
-    "package:verification": "npm run check && node scripts/package-verification.mjs"
+    "package:verification": "npm run check && node scripts/package-verification.mjs",
+    "build:preview": "npm run build && node scripts/package-preview.mjs",
+    "test:release": "node --test tests/release.test.mjs",
+    "screenshots:readme": "node scripts/readme-screenshots.mjs"
   },
   "dependencies": {
     "lit": "^3.3.1"

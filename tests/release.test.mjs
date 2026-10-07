@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parsePromotionTag, resolvePromotion } from '../scripts/release-promotion.mjs';
+import { validatePromotion, validateEvidence } from '../scripts/release.mjs';
+import { validateFragment, renderNotes } from '../scripts/release-notes.mjs';
+const dev = 'navet-cards-dev-0.1.0-dev.20261007120000';
+const beta = 'v0.1.0-beta.1';
+const source = (tag) => ({tag,sha:'a'.repeat(40)});
+test('channel selection follows Dev to beta to stable without reserving tags in previews', () => {
+  assert.equal(parsePromotionTag(dev).channel,'dev');
+  assert.equal(resolvePromotion({tags:[dev,beta], sources:[source(dev)]}).release_tag,'v0.1.0-beta.2');
+  assert.equal(resolvePromotion({channel:'stable',tags:[dev,beta],sources:[source(beta)]}).release_tag,'v0.1.0');
+  assert.throws(() => resolvePromotion({channel:'stable',tags:[dev],sources:[source(dev)]}));
+  assert.throws(() => resolvePromotion({releaseTag:beta,tags:[dev,beta],sources:[source(dev)]}));
+});
+test('stable requires installation acceptance, same base and a candidate source', () => {
+  assert.throws(() => validatePromotion(beta,'v0.1.0'));
+  assert.equal(validatePromotion(beta,'v0.1.0',{installationTested:true}).channel,'stable');
+  assert.equal(validatePromotion(beta,'v0.1.0',{previewOnly:true}).channel,'stable');
+  assert.throws(() => validatePromotion(beta,'v0.2.0',{installationTested:true}));
+  assert.throws(() => validatePromotion(dev,'v0.1.0',{installationTested:true}));
+  assert.throws(() => validatePromotion(beta,'v0.1.0-beta.2'));
+});
+test('source evidence binds repository, tag, version, commit, digest and run', () => {
+  const evidence = {schema:1,repository:'navet-app/navet-cards',tag:beta,version:'0.1.0-beta.1',commit:'a'.repeat(40),sha256:'b'.repeat(64),runId:123};
+  const expected = {repo:evidence.repository,tag:beta,sha:evidence.commit};
+  validateEvidence(evidence,expected);
+  for(const patch of [{repository:'other/repo'},{commit:'c'.repeat(40)},{tag:'v0.1.0-beta.2'},{version:'0.1.0'},{sha256:'bad'},{runId:0}]) assert.throws(() => validateEvidence({...evidence,...patch},expected));
+  assert.throws(() => validateEvidence({...evidence,tag:'v0.1.0',version:'0.1.0'},{...expected,tag:'v0.1.0'}));
+});
+test('notes combine complete-range fragments, omit internal changes and validate summaries', () => {
+  const fragments = [{type:'fixed',summary:'Fixed room controls.'},{type:'internal',summary:'Updated tooling.'},{type:'fixed',summary:'Fixed room controls.'}].map(validateFragment);
+  assert.equal(renderNotes(fragments),'## Improvements and bug fixes\n\n- Fixed room controls.\n');
+  assert.equal(renderNotes([fragments[1]]),'No user-facing changes in this release.\n');
+  for(const fragment of [{type:'other',summary:'Something'},{type:'fixed',summary:'two\nlines'},{type:'fixed',summary:'word '.repeat(21)}]) assert.throws(() => validateFragment(fragment));
+});
+
+test('Git-range notes include every new fragment since stable and exclude released fragments', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve } = await import('node:path');
+  const { execFileSync } = await import('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(),'navet-cards-notes-'));
+  const git = (...args) => execFileSync('git',args,{cwd:dir,stdio:'pipe'});
+  try {
+    git('init'); git('config','user.name','Release tests'); git('config','user.email','test@example.invalid');
+    mkdirSync(join(dir,'.changes'));
+    writeFileSync(join(dir,'.changes/old.json'),JSON.stringify({type:'fixed',summary:'Previously released fix.'}));
+    git('add','.');git('commit','-m','test: baseline');git('tag','v0.1.0');
+    for(const [name,type,summary] of [['first','new','Added room controls.'],['second','fixed','Fixed unavailable readings.'],['internal','internal','Updated test tooling.']]) {
+      writeFileSync(join(dir,`.changes/${name}.json`),JSON.stringify({type,summary}));
+      git('add','.');git('commit','-m',`test: ${name}`);
+    }
+    execFileSync(process.execPath,[resolve('scripts/release-notes.mjs')],{cwd:dir,env:{...process.env,RELEASE_SHA:'HEAD',RELEASE_TAG:'v0.2.0-beta.1',NOTES_BASE:''}});
+    const notes = readFileSync(join(dir,'dist/release-notes.md'),'utf8');
+    assert.match(notes,/Added room controls\./);assert.match(notes,/Fixed unavailable readings\./);
+    assert.doesNotMatch(notes,/Previously released|test tooling/);
+    execFileSync(process.execPath,[resolve('scripts/release-notes.mjs'),'check'],{cwd:dir,env:{...process.env,RELEASE_SHA:'HEAD',NOTES_BASE:'v0.1.0'}});
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});

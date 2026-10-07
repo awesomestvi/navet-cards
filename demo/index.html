@@ -6,20 +6,23 @@
   <style>
     :root { color-scheme:dark; --primary-text-color:#eef0f4; --secondary-text-color:#a4abb8; --card-background-color:#20242d; --ha-card-background:#20242d; --divider-color:#424753; --primary-color:#ea8c55; }
     body { margin:0; background:#16191f; color:var(--primary-text-color); font:14px Inter,system-ui,sans-serif; }
-    main { max-width:1000px; margin:0 auto; padding:32px 24px 60px; } header { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:28px; }
+    main { max-width:1126px; margin:0 auto; padding:32px 24px 60px; } header { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:28px; }
     h1 { margin:0 0 7px; font-size:24px; font-weight:600; letter-spacing:-.035em; } h2 { font-size:14px; font-weight:550; margin:0 0 14px; color:var(--secondary-text-color); }
     p { color:var(--secondary-text-color); margin:0; line-height:1.5; } .toolbar { display:flex; gap:8px; flex-wrap:wrap; } button,select { background:var(--card-background-color); color:inherit; border:1px solid var(--divider-color); padding:9px 13px; border-radius:100px; font:inherit; cursor:pointer; }
-    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:stretch; margin-bottom:30px; }
+    .grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-rows:minmax(176px,auto); gap:14px; align-items:start; margin-bottom:30px; }
+    .grid > * { grid-column:span 4; height:176px; } .grid > :is(navet-switch-card,navet-lock-card,navet-person-card,navet-scene-card,navet-script-card,navet-button-card) { grid-column:span 2; }
+    .grid > navet-switch-card[data-size='extra-small'] { height:88px; }
     .section { display:contents; } .built-in { border:1px solid var(--divider-color); border-radius:12px; padding:18px; background:var(--card-background-color); min-height:130px; display:flex; flex-direction:column; gap:8px; }
     #events { min-height:25px; font-size:12px; margin-top:20px; } #editor-panel { max-width:520px; margin-top:24px; padding:24px; background:var(--card-background-color); border-radius:24px; }
     .light { color-scheme:light; --primary-text-color:#20242d; --secondary-text-color:#657080; --card-background-color:#fff; --ha-card-background:#fff; --divider-color:#d7dce3; background:#f2f4f6; }
-    @media(max-width:700px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } header { align-items:flex-start; flex-direction:column; } }
-    @media(max-width:380px) { main { padding:24px 12px; } .grid { grid-template-columns:1fr; } }
+    @media(max-width:700px) { .grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .grid > * { grid-column:span 4; height:176px; } .grid > :is(navet-switch-card,navet-lock-card,navet-person-card,navet-scene-card,navet-script-card,navet-button-card) { grid-column:span 2; } header { align-items:flex-start; flex-direction:column; } }
+    @media(max-width:380px) { main { padding:24px 12px; } }
   </style>
 </head>
 <body><main>
-  <header><div><h1>Navet Cards</h1><p>Independent cards for your Home Assistant dashboard.</p></div><div class="toolbar"><button id="theme">Light theme</button><button id="unavailable">Unavailable state</button><button id="fail">Fail next action</button></div></header>
+  <header><div><h1>Navet Cards</h1><p>Independent cards for your Home Assistant dashboard.</p></div><div class="toolbar"><button id="switch-size">Extra-small switch</button><button id="theme">Light theme</button><button id="unavailable">Unavailable state</button><button id="fail">Fail next action</button></div></header>
   <p><a href="./composition.html" style="color:inherit">Try room controls and composition</a></p><h2>Kitchen</h2><div class="grid" id="cards"></div>
+  <h2>More entities and custom cards</h2><div class="grid" id="catalog"></div>
   <p>This preview uses simulated Home Assistant state. It does not control your home.</p>
   <p id="events" role="status">Try a control, then open the room.</p>
   <details id="editor-panel"><summary>Edit the kitchen light</summary><navet-card-editor id="editor"></navet-card-editor></details>
@@ -51,7 +54,12 @@
       if(!window.demoHass.states[id]) return;
       const old=window.demoHass.states[id];
       let value=old.state; const attributes={...old.attributes};
-      if(service==='turn_on') value='on'; if(service==='turn_off') value='off';
+      if(service==='turn_on') value=domain==='scene'?new Date().toISOString():'on'; if(service==='turn_off') value='off';
+      if(service==='lock') value='locked'; if(service==='unlock') value='unlocked';
+      if(service==='start') value='cleaning'; if(service==='return_to_base') value='returning';
+      if(service==='pause') value='paused'; if(service==='set_value') value=data.value;
+      if(service==='select_option') value=data.option;
+      if(data.percentage!==undefined) attributes.percentage=data.percentage;
       if(data.brightness_pct!==undefined) attributes.brightness=Math.round(data.brightness_pct*255/100);
       if(service==='media_pause') value='paused'; if(service==='media_play') value='playing';
       if(data.volume_level!==undefined) attributes.volume_level=data.volume_level;
@@ -62,6 +70,8 @@
       report(`${service.replaceAll('_',' ')} · ${old.attributes.friendly_name}`);
     }
   };
+  window.demoHass.callWS=async message=>({response:{[message.target.entity_id]:{forecast:Array.from({length:7},(_,i)=>({datetime:new Date(Date.now()+i*86400000).toISOString(),condition:i%3===0?'sunny':i%3===1?'cloudy':'rainy',temperature:18+i%4,templow:10+i%3}))}}});
+  window.demoHass.callApi=async()=>[Array.from({length:25},(_,i)=>({last_changed:new Date(Date.now()-(24-i)*3600000).toISOString(),state:String([320,360,420,390,280,250,210,390,780,840,690,460,480,710,560,490,410,600,620,590,650,520,490,460,420][i])}))];
   window.configs=[
     {type:'custom:navet-light-card',entity:'light.kitchen',tap_action:{action:'toggle'},hold_action:{action:'more-info'}},
     {type:'custom:navet-switch-card',entity:'switch.coffee'},
@@ -72,7 +82,56 @@
     {type:'custom:navet-cover-card',entity:'cover.kitchen'},
   ];
   window.cards=window.configs.map(config=>{const card=document.createElement(config.type.replace('custom:',''));card.setConfig(config);document.querySelector('#cards').append(card);return card;});
-  window.syncCards=()=>{window.cards.forEach(card=>card.hass=window.demoHass);document.querySelector('#editor').hass=window.demoHass;}; window.syncCards();
+  window.cards[1].id='kitchen-switch';
+  window.smallExample=document.createElement('navet-switch-card');
+  window.smallExample.id='small-example';
+  window.smallExample.setConfig({type:'custom:navet-switch-card',entity:'switch.coffee',name:'Small · 1×1',size:'small'});
+  window.cards[1].after(window.smallExample);
+  const additions = {
+    'input_number.watering':state('input_number.watering','15',{friendly_name:'Watering duration',min:1,max:60,step:1,unit_of_measurement:'min'}),
+    'input_select.house':state('input_select.house','Home',{friendly_name:'House mode',options:['Home','Away','Night']}),
+    'fan.office':state('fan.office','on',{friendly_name:'Office fan',supported_features:49,percentage:40}),
+    'lock.front':state('lock.front','locked',{friendly_name:'Front door'}),
+    'vacuum.robot':state('vacuum.robot','docked',{friendly_name:'Robot vacuum',supported_features:8220,battery_level:86,cleaned_area:42,cleaning_time:28}),
+    'person.alex':state('person.alex','home',{friendly_name:'Alex'}),
+    'weather.home':state('weather.home','sunny',{friendly_name:'Home weather',temperature:18,temperature_unit:'°C',humidity:62,apparent_temperature:17,supported_features:1}),
+    'scene.evening':state('scene.evening','unknown',{friendly_name:'Evening'}),
+    'script.goodnight':state('script.goodnight','off',{friendly_name:'Good night'}),
+    'input_text.note':state('input_text.note','Remember to water the plants.\nCoffee beans are in the pantry.',{friendly_name:'Kitchen note',min:0,max:255}),
+    'sensor.battery':state('sensor.battery','18',{friendly_name:'Door sensor',unit_of_measurement:'%',device_class:'battery'}),
+    'sensor.battery_two':state('sensor.battery_two','78',{friendly_name:'Motion sensor',unit_of_measurement:'%',device_class:'battery'}),
+    'sensor.power':state('sensor.power','420',{friendly_name:'Current load',unit_of_measurement:'W',device_class:'power'}),
+    'sensor.energy':state('sensor.energy','3.8',{friendly_name:'Today',unit_of_measurement:'kWh',device_class:'energy'}),
+    'sensor.ups_status':state('sensor.ups_status','Online',{friendly_name:'Status'}),
+    'sensor.ups_battery':state('sensor.ups_battery','92',{friendly_name:'Battery',unit_of_measurement:'%'}),
+    'sensor.ups_runtime':state('sensor.ups_runtime','54',{friendly_name:'Runtime',unit_of_measurement:'min'}),
+    'sensor.ups_load':state('sensor.ups_load','24',{friendly_name:'Load',unit_of_measurement:'%'}),
+  };
+  window.demoHass={...window.demoHass,states:{...window.demoHass.states,...additions},entities:{...window.demoHass.entities,'scene.evening':{area_id:'kitchen'}}};
+  const moreConfigs = [
+    {type:'custom:navet-fan-card',entity:'fan.office'},
+    {type:'custom:navet-lock-card',entity:'lock.front'},
+    {type:'custom:navet-vacuum-card',entity:'vacuum.robot'},
+    {type:'custom:navet-person-card',entity:'person.alex'},
+    {type:'custom:navet-weather-card',entity:'weather.home'},
+    {type:'custom:navet-scene-card',entity:'scene.evening'},
+    {type:'custom:navet-script-card',entity:'script.goodnight'},
+    {type:'custom:navet-entity-card',entity:'sensor.power',name:'Generic entity'},
+    {type:'custom:navet-info-card',name:'Kitchen readings',entities:['sensor.temperature','sensor.power']},
+    {type:'custom:navet-note-card',entity:'input_text.note'},
+    {type:'custom:navet-photo-card',name:'A quiet moment',image:'/demo/landscape.svg',alt:'Illustrated hills at sunset'},
+    {type:'custom:navet-button-card',name:'Evening routine',entity:'scene.evening'},
+    {type:'custom:navet-battery-card',name:'Batteries',entities:['sensor.battery','sensor.battery_two']},
+    {type:'custom:navet-ups-card',name:'Office UPS',entities:['sensor.ups_status','sensor.ups_load','sensor.ups_battery','sensor.ups_runtime']},
+    {type:'custom:navet-energy-now-card',name:'Energy now',entities:['sensor.power','sensor.energy']},
+    {type:'custom:navet-media-stack-card',name:'Speakers',entities:['media_player.kitchen']},
+    {type:'custom:navet-number-card',entity:'input_number.watering'},
+    {type:'custom:navet-select-card',entity:'input_select.house'},
+    {type:'custom:navet-navigation-card',name:'Rooms',links:[{name:'Kitchen',path:'#kitchen'},{name:'Home',path:'/demo/index.html'}]},
+  ];
+  window.catalogCards=moreConfigs.map(config=>{const card=document.createElement(config.type.replace('custom:',''));card.setConfig(config);document.querySelector('#catalog').append(card);return card;});
+  window.syncCards=()=>{[...window.cards,window.smallExample,...window.catalogCards].forEach(card=>card.hass=window.demoHass);document.querySelector('#editor').hass=window.demoHass;}; window.syncCards();
+  document.querySelector('#switch-size').onclick=()=>{const extra=window.configs[1].size!=='extra-small';window.configs[1]={...window.configs[1],size:extra?'extra-small':'small'};window.cards[1].setConfig(window.configs[1]);document.querySelector('#switch-size').textContent=extra?'Small switch':'Extra-small switch';};
   const editor=document.querySelector('#editor');editor.setConfig(window.configs[0]);
   editor.addEventListener('config-changed',e=>{window.cards[0].setConfig(e.detail.config);window.configs[0]=e.detail.config;});
   document.addEventListener('hass-more-info',e=>report(`More info · ${e.detail.entityId}`));

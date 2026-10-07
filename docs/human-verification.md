@@ -28,6 +28,8 @@ Verify the copy with `shasum -a 256 -c SHA256SUMS` from the verification folder.
 - Layout: Sections and Masonry, long titles, your smallest phone/tablet, dark/light themes, and mixed built-in/custom cards.
 - Input: keyboard focus, tap, hold, double tap, scrolling across sliders, reduced motion, and dialogs in the companion app.
 - Accounts: a household member and any restricted accounts used at home.
+- Added entity families: fan speed, lock slide confirmation (including code-protected locks via details), vacuum start/pause/dock, scene/script activation, presence and current weather.
+- Custom cards: live grouped readings, UPS metrics, battery percentages, energy sensor units, individual media playback, photo fallback and text-helper note persistence across reload.
 - Upgrade: replace a resource with the versioned build URL, reload all frontends, then verify rollback.
 
 Record the Home Assistant version, browser or companion-app version, card configuration, expected behavior, actual behavior, and a screenshot for any issue.

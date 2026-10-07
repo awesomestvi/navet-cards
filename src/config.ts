@@ -1,6 +1,10 @@
 import type { CardKind } from './core';
 
-export const KINDS: CardKind[] = ['light', 'switch', 'sensor', 'room', 'media', 'climate', 'cover', 'number', 'select', 'navigation'];
+export const KINDS: CardKind[] = ['light', 'switch', 'sensor', 'room', 'media', 'climate', 'cover', 'number', 'select', 'navigation',
+  'fan', 'lock', 'vacuum', 'person', 'weather', 'scene', 'script', 'entity',
+  'info', 'note', 'photo', 'button', 'battery', 'ups', 'energy-now', 'media-stack'];
+export const MULTI_KINDS: CardKind[] = ['info', 'battery', 'ups', 'energy-now', 'media-stack'];
+export const CONTENT_KINDS: CardKind[] = ['note', 'photo', 'button'];
 export const tagFor = (kind: CardKind) => `navet-${kind}-card`;
 export interface ActionConfig {
   action: 'none' | 'toggle' | 'more-info' | 'navigate' | 'perform-action';
@@ -27,6 +31,11 @@ export interface CardConfig {
   icon?: string;
   attribute?: string;
   unit?: string;
+  content?: string;
+  image?: string;
+  images?: string[];
+  alt?: string;
+  size?: 'small' | 'extra-small';
   layout?: 'compact' | 'comfortable' | 'row';
   panel_id?: string;
   sub_controls?: SubControl[];
@@ -48,8 +57,14 @@ export interface CardConfig {
 }
 export const domainAllowed = (kind: CardKind, entity: string) => {
   const domain = entity.split('.')[0];
+  if (kind === 'entity') return /^[a-z_]+\.[a-z0-9_]+$/.test(entity);
   return (
     {
+      fan: ['fan'], lock: ['lock'], vacuum: ['vacuum'], person: ['person', 'device_tracker'],
+      weather: ['weather'], scene: ['scene'], script: ['script'], entity: [],
+      info: ['sensor', 'binary_sensor'], battery: ['sensor', 'binary_sensor'], ups: ['sensor', 'binary_sensor'],
+      'energy-now': ['sensor'], 'media-stack': ['media_player'], note: ['input_text', 'text'],
+      photo: ['image'], button: ['button', 'input_button', 'scene', 'script'],
       light: ['light'],
       switch: ['switch', 'input_boolean'],
       sensor: ['sensor', 'binary_sensor'],
@@ -69,6 +84,8 @@ export const localPath = (v: unknown): v is string => typeof v === 'string' && (
 const entityId = (v: unknown): v is string =>
   typeof v === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(v);
 
+export const resourceUrl = (v: unknown): v is string => typeof v === 'string' && !/[\\\r\n]/.test(v) && (/^https?:\/\/[^\s]+$/i.test(v) || (v.startsWith('/') && !v.startsWith('//')));
+
 export function validateConfig(input: unknown, kind: CardKind): CardConfig {
   if (!object(input)) fail('configuration must be an object.');
   if (input.type !== `custom:${tagFor(kind)}`) fail(`type must be custom:${tagFor(kind)}.`);
@@ -86,16 +103,28 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
     for (const link of input.links) {
       if (!object(link) || typeof link.name !== 'string' || !link.name.trim() || !localPath(link.path)) fail('links need a name and local path or panel hash.');
     }
+  } else if (MULTI_KINDS.includes(kind)) {
+    if (!Array.isArray(input.entities) || !input.entities.length || input.entities.length > 24 || !input.entities.every(id => entityId(id) && domainAllowed(kind, id)))
+      fail(`${kind} needs 1–24 supported entities.`);
+  } else if (CONTENT_KINDS.includes(kind)) {
+    if (input.entity !== undefined && (!entityId(input.entity) || !domainAllowed(kind, input.entity))) fail(`unsupported ${kind} entity.`);
+    if (kind === 'photo' && !input.entity && !resourceUrl(input.image) && !(Array.isArray(input.images) && input.images.length)) fail('photo needs an image URL or image entity.');
+    if (kind === 'note' && !input.entity && typeof input.content !== 'string') fail('note needs content or a text entity.');
+    if (kind === 'button' && !input.entity && (!object(input.tap_action) || input.tap_action.action === 'none' || input.tap_action.action === 'more-info' || input.tap_action.action === 'toggle')) fail('action card needs an entity or a navigation/service action.');
   } else if (!entityId(input.entity) || !domainAllowed(kind, input.entity)) {
     fail(`entity must reference a supported ${kind} entity.`);
   }
-  for (const key of ['name', 'icon', 'attribute', 'unit']) {
+  for (const key of ['name', 'icon', 'attribute', 'unit', 'content', 'image', 'alt']) {
     if (input[key] !== undefined && typeof input[key] !== 'string') fail(`${key} must be text.`);
   }
+  if (input.images !== undefined && (kind !== 'photo' || !Array.isArray(input.images) || !input.images.length || input.images.length > 24 || !input.images.every(resourceUrl))) fail('images must contain 1–24 HTTP(S) URLs or local paths.');
+  if (input.image !== undefined && !resourceUrl(input.image)) fail('image must be an HTTP(S) URL or local path.');
   if (input.icon !== undefined && !/^[a-z0-9_-]+:[a-z0-9_-]+$/i.test(String(input.icon)))
     fail('icon must use a namespace, such as mdi:lightbulb.');
   if (input.layout !== undefined && !['compact', 'comfortable', 'row'].includes(String(input.layout)))
     fail('layout must be compact, comfortable or row.');
+  if (input.size !== undefined && (kind !== 'switch' || !['small', 'extra-small'].includes(String(input.size))))
+    fail('switch size must be small or extra-small.');
   for (const key of ['show_state', 'show_brightness'])
     if (input[key] !== undefined && typeof input[key] !== 'boolean')
       fail(`${key} must be true or false.`);
@@ -128,8 +157,8 @@ export function validateConfig(input: unknown, kind: CardKind): CardConfig {
       !['none', 'toggle', 'more-info', 'navigate', 'perform-action'].includes(String(action.action))
     )
       fail(`${key} has an unsupported action.`);
-    if (action.action === 'toggle' && !['light', 'switch'].includes(kind))
-      fail('toggle is supported on light and switch cards.');
+    if (action.action === 'toggle' && !['light', 'switch', 'fan'].includes(kind))
+      fail('toggle is supported on light, switch and fan cards.');
     if (
       action.action === 'navigate' &&
       (typeof action.navigation_path !== 'string' ||

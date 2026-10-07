@@ -311,3 +311,12 @@ test('new media, heating mode and light temperature controls require capability 
   await assert.rejects(executeCommand(h,light,{type:'color_temperature',value:1000}),/range/);
   assert.deepEqual(calls.map(c=>c.slice(0,3)),[['media_player','media_previous_track',{}],['media_player','volume_mute',{is_volume_muted:true}],['media_player','select_source',{source:'TV'}],['climate','set_hvac_mode',{hvac_mode:'off'}],['light','turn_on',{color_temp_kelvin:3000}]]);
 });
+
+
+test('switch sizes validate without accepting unsupported family sizes', () => {
+  for (const size of ['small','extra-small']) {
+    assert.equal(validateConfig({type:'custom:navet-switch-card',entity:'switch.coffee',size},'switch').size,size);
+  }
+  assert.throws(() => validateConfig({type:'custom:navet-switch-card',entity:'switch.coffee',size:'medium'},'switch'));
+  assert.throws(() => validateConfig({type:'custom:navet-light-card',entity:'light.kitchen',size:'small'},'light'));
+});

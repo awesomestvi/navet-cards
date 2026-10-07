@@ -1,4 +1,5 @@
 import type { CardEntity, CardKind, CardCommand, Capability } from '../core';
+import { resourceUrl } from '../config';
 import { PermissionDeniedError } from '../core';
 
 export interface HassEntity {
@@ -9,6 +10,8 @@ export interface HassEntity {
   last_updated?: string;
 }
 export interface Hass {
+  callWS?<T>(message: Record<string, unknown>): Promise<T>;
+  callApi?<T>(method: string, path: string): Promise<T>;
   states: Record<string, HassEntity>;
   language?: string;
   locale?: { language?: string };
@@ -49,11 +52,25 @@ export function mapEntity(
   attribute?: string,
   unit?: string,
 ): CardEntity {
+  if (['entity', 'info', 'battery', 'ups', 'energy-now', 'media-stack'].includes(kind)) kind = kindForEntity(id);
   const a = entity?.attributes ?? {};
   const state = entity?.state ?? 'missing';
   const features = finite(a.supported_features) ? a.supported_features : 0;
   const capabilities: Capability[] = [];
   if (['light', 'switch'].includes(kind)) capabilities.push('toggle');
+  if (kind === 'fan') {
+    if (features & 1) capabilities.push('speed');
+    if ((features & 48) === 48) capabilities.push('toggle');
+  }
+  if (kind === 'lock' && !a.code_format) capabilities.push('lock', 'unlock');
+  if (kind === 'vacuum') {
+    if (features & 8192) capabilities.push('start');
+    if (features & 8) capabilities.push('stop');
+    if (features & 16) capabilities.push('return_home');
+    if (features & 4) capabilities.push('pause');
+  }
+  if (['scene', 'script', 'button'].includes(kind)) capabilities.push('activate');
+  if (kind === 'note' && ['input_text', 'text'].includes(id.split('.')[0]) && a.mode !== 'password') capabilities.push('text');
   const modes = Array.isArray(a.supported_color_modes) ? a.supported_color_modes : [];
   if (
     kind === 'light' &&
@@ -101,10 +118,19 @@ export function mapEntity(
     id: `home_assistant:${id}`,
     externalId: id,
     name: text(a.friendly_name) || id,
+    speed: finite(a.percentage) ? clamp(a.percentage) : 0,
+    battery: finite(a.battery_level) ? clamp(a.battery_level) : undefined,
+    humidity: finite(a.humidity) ? a.humidity : undefined,
+    deviceClass: text(a.device_class),
+    areaName: hass?.areas?.[hass.entities?.[id]?.area_id ?? hass.devices?.[hass.entities?.[id]?.device_id ?? '']?.area_id ?? '']?.name,
+    feelsLike: finite(a.apparent_temperature) ? a.apparent_temperature : undefined,
+    cleanedArea: finite(a.cleaned_area) ? a.cleaned_area : undefined,
+    cleaningMinutes: finite(a.cleaning_time) ? a.cleaning_time : undefined,
+    textMax: finite(a.max) ? a.max : 255, textMin: finite(a.min) ? a.min : 0, secret: a.mode === 'password',
     state,
-    value: rendered,
-    unit: unit ?? (attribute ? '' : text(a.unit_of_measurement)),
-    available: !!entity && !['unavailable', 'unknown'].includes(state),
+    value: a.mode === 'password' ? '••••' : rendered,
+    unit: unit ?? (attribute ? '' : kind === 'weather' ? text(a.temperature_unit) : text(a.unit_of_measurement)),
+    available: !!entity && state !== 'unavailable' && (state !== 'unknown' || ['scene', 'button'].includes(kind)),
     active: [
       'on',
       'playing',
@@ -116,7 +142,7 @@ export function mapEntity(
       'auto',
       'heat_cool',
       'dry',
-      'fan_only',
+      'fan_only', 'home', 'cleaning', 'locked',
     ].includes(state),
     capabilities,
     number: Number.isFinite(Number(state)) ? Number(state) : undefined,
@@ -139,7 +165,7 @@ export function mapEntity(
     climateAction: text(a.hvac_action),
     artist: text(a.media_artist),
     artwork:
-      typeof a.entity_picture === 'string' && /^(\/[^/]|https?:\/\/)/i.test(a.entity_picture)
+      resourceUrl(a.entity_picture)
         ? a.entity_picture
         : undefined,
     duration: finite(a.media_duration) && a.media_duration > 0 ? a.media_duration : undefined,
@@ -166,7 +192,7 @@ export function roomEntityIds(hass: Hass, area: string | undefined, explicit?: s
   if (!index) {
     index = new Map();
     for (const [id, e] of Object.entries(hass.entities)) {
-      if (!['light', 'switch', 'input_boolean', 'sensor', 'binary_sensor', 'climate', 'media_player', 'cover', 'number', 'input_number', 'select', 'input_select'].includes(id.split('.')[0]) || e.hidden_by || e.disabled_by || e.entity_category) continue;
+      if (!['light', 'switch', 'input_boolean', 'sensor', 'binary_sensor', 'climate', 'media_player', 'cover', 'number', 'input_number', 'select', 'input_select', 'fan', 'lock', 'vacuum', 'person', 'weather', 'scene', 'script'].includes(id.split('.')[0]) || e.hidden_by || e.disabled_by || e.entity_category) continue;
       const owner = e.area_id ?? (e.device_id ? hass.devices?.[e.device_id]?.area_id : null);
       if (!owner) continue;
       const members = index.get(owner) ?? [];
@@ -183,6 +209,8 @@ export function kindForEntity(id: string): CardKind {
   return (
     (
       {
+        fan: 'fan', lock: 'lock', vacuum: 'vacuum', person: 'person', device_tracker: 'person', weather: 'weather',
+        scene: 'scene', script: 'script', button: 'button', input_button: 'button', input_text: 'note', text: 'note', image: 'photo',
         light: 'light',
         switch: 'switch',
         input_boolean: 'switch',
@@ -232,6 +260,22 @@ export async function executeCommand(
   let service: string;
   let data: Record<string, unknown> = {};
   switch (command.type) {
+    case 'speed':
+      if (!entity.capabilities.includes('speed') || !Number.isFinite(command.value) || command.value < 0 || command.value > 100) throw new Error('Speed is not supported or outside the supported range.');
+      service = 'set_percentage'; data = { percentage: command.value }; break;
+    case 'lock':
+    case 'unlock':
+    case 'start':
+    case 'return_home':
+    case 'activate':
+      if (!entity.capabilities.includes(command.type)) throw new Error('This control is not supported.');
+      service = command.type === 'activate' ? (['button', 'input_button'].includes(domain) ? 'press' : 'turn_on') : command.type === 'return_home' ? 'return_to_base' : command.type; break;
+    case 'text':
+      if (!entity.capabilities.includes('text') || command.value.length < (entity.textMin ?? 0) || command.value.length > (entity.textMax ?? 255)) throw new Error('Note length is outside the supported range.');
+      service = 'set_value'; data = { value: command.value }; break;
+    case 'pause':
+      if (domain !== 'vacuum' || !entity.capabilities.includes('pause')) throw new Error('Pause is not supported.');
+      service = 'pause'; break;
     case 'number':
     case 'color_temperature': {
       if (!entity.capabilities.includes(command.type)) throw new Error('This control is not supported.');
@@ -302,7 +346,7 @@ export async function executeCommand(
     default:
       if (!entity.capabilities.includes(command.type))
         throw new Error('This control is not supported.');
-      service = `${command.type}_cover`;
+      service = domain === 'vacuum' && command.type === 'stop' ? 'stop' : `${command.type}_cover`;
   }
   await callHostService(hass, domain, service, data, target);
 }

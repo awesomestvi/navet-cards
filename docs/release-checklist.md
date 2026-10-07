@@ -1,5 +1,7 @@
 # Release checklist
 
+Follow the [release workflow](release-workflow.md) to publish Dev builds and promote tested candidates. Stable publication requires installing and testing the selected beta/RC.
+
 ## Automated evidence
 
 Use [verification status](verification-status.md) for the beta's recorded evidence and [human verification](human-verification.md) for installation and acceptance.
@@ -28,4 +30,4 @@ Use [verification status](verification-status.md) for the beta's recorded eviden
 - Verify HACS installs the single `navet-cards.js` resource from the release, registers it, and upgrades it correctly.
 - Set the supported Home Assistant minimum from live evidence, then align `hacs.json` and README.
 - Record tested HA/browser/app versions and unresolved issues in release notes.
-- Publish a prerelease only after these gates pass; default HACS catalog inclusion is a separate submission.
+- Complete the applicable live gates before promoting Dev to beta/RC, and install the selected candidate before stable publication. Default HACS catalog inclusion is a separate submission.

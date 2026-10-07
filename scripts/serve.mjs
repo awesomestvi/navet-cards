@@ -9,6 +9,7 @@ const mime = {
   '.css': 'text/css',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.svg': 'image/svg+xml',
 };
 createServer(async (request, response) => {
   try {
@@ -16,7 +17,7 @@ createServer(async (request, response) => {
       root,
       '.' + decodeURIComponent(new URL(request.url, 'http://localhost').pathname),
     );
-    if (!path.startsWith(root + sep)) {
+    if (path !== root && !path.startsWith(root + sep)) {
       response.writeHead(403).end();
       return;
     }
